@@ -278,7 +278,8 @@ require_empty_duplicate_user_root() {
   local forbidden
   for forbidden in \
     "$private_user_root/Library/Application Support/island-app/tasks.sqlite" \
-    "$private_user_root/Library/Application Support/island-app/local-hook-authorization.header"; do
+    "$private_user_root/Library/Application Support/island-app/local-hook-authorization.header" \
+    "$private_user_root/Library/Application Support/island-app/bin/dev-island-hook"; do
     [[ ! -e "$forbidden" && ! -L "$forbidden" ]] \
       || fail "yielding duplicate created product state in its private user root"
   done

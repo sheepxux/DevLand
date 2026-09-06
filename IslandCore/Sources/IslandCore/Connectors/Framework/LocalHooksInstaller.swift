@@ -288,6 +288,76 @@ public struct LocalHooksInstaller: Sendable {
     }
 }
 
+// MARK: - Launcher template
+
+extension LocalHooksInstaller {
+    /// Seconds a verified action Hook may wait for the island's decision.
+    static let launcherActionTimeoutSeconds = Int(AgentActionRequest.defaultTimeout) + 5
+    /// Seconds a lifecycle Hook may spend before it is abandoned fail-open.
+    static let launcherPassiveTimeoutSeconds = 2
+
+    /// The launcher is a static `sh` program: no template variables, so its
+    /// bytes — and the vendor line that points at it — never change between
+    /// Dev Island versions. Only the registry decides which route/event pairs
+    /// wait for a decision and which routes carry terminal hints.
+    static func launcherScript(registry: [LocalAgentDescriptor] = LocalAgentRegistry.all) -> String {
+        let commandDescriptors = registry.filter { $0.standalonePluginRenderer == nil }
+        let actionPatterns = commandDescriptors.flatMap { descriptor in
+            descriptor.actionHookEvents.sorted().map { "\(descriptor.endpointPath)/\($0)" }
+        }.sorted()
+        let plainRoutes = commandDescriptors
+            .filter { !$0.usesTerminalFallback }
+            .map(\.endpointPath)
+            .sorted()
+        let actionCase = actionPatterns.isEmpty ? "''" : actionPatterns.joined(separator: "|")
+        let plainCase = plainRoutes.isEmpty ? "''" : plainRoutes.joined(separator: "|")
+        let terminalHeaders = "-H \"X-Dev-Island-Terminal-Bundle: ${__CFBundleIdentifier:-}\" "
+            + "-H \"X-Dev-Island-Terminal-Program: ${TERM_PROGRAM:-}\" "
+            + "-H \"X-Dev-Island-TTY: $(/bin/ps -o tty= -p $$ | /usr/bin/tr -d '[:space:]')\" "
+            + "-H \"X-Dev-Island-Tmux: ${TMUX:-}\" "
+            + "-H \"X-Dev-Island-Tmux-Pane: ${TMUX_PANE:-}\" "
+        let commonHeaders = "-H 'Content-Type: application/json' "
+            + "-H '\(requestHeaderName): \(requestHeaderValue)' "
+            + "-H \"@\(LocalHookAuthorizationStore.shellHeaderFilePath)\" "
+        return """
+        #!/bin/sh
+        # Dev Island local Hook launcher. Managed by Dev Island; do not edit.
+        # Forwards the Agent's JSON from stdin to the loopback listener. Fail-open:
+        # a stopped or missing Dev Island never fails the Agent's turn.
+        ROUTE=""; EVENT=""; PORT=""
+        while [ $# -gt 0 ]; do
+          case "$1" in
+            --route) ROUTE="$2"; shift 2 ;;
+            --event) EVENT="$2"; shift 2 ;;
+            --port) PORT="$2"; shift 2 ;;
+            *) shift ;;
+          esac
+        done
+        case "$ROUTE" in /hooks/) exit 0 ;; /hooks/*[!a-z0-9-]*) exit 0 ;; /hooks/*) ;; *) exit 0 ;; esac
+        case "$EVENT" in ""|*[!A-Za-z0-9_-]*) exit 0 ;; esac
+        case "$PORT" in ""|*[!0-9]*) exit 0 ;; esac
+        MODE=passive
+        case "$ROUTE/$EVENT" in \(actionCase)) MODE=action ;; esac
+        TERMINAL=1
+        case "$ROUTE" in \(plainCase)) TERMINAL=0 ;; esac
+        send() {
+          if [ "$TERMINAL" = 1 ]; then
+            /usr/bin/curl --noproxy 127.0.0.1 -sf -m "$1" -X POST "http://127.0.0.1:${PORT}${ROUTE}" \(commonHeaders)\(terminalHeaders)--data-binary @-
+          else
+            /usr/bin/curl --noproxy 127.0.0.1 -sf -m "$1" -X POST "http://127.0.0.1:${PORT}${ROUTE}" \(commonHeaders)--data-binary @-
+          fi
+        }
+        if [ "$MODE" = action ]; then
+          send \(launcherActionTimeoutSeconds) 2>/dev/null || true
+        else
+          send \(launcherPassiveTimeoutSeconds) >/dev/null 2>&1 || true
+        fi
+        exit 0
+
+        """
+    }
+}
+
 enum PreparedHookUninstall {
     case unchanged
     case replace(Data)

@@ -683,7 +683,8 @@ verify_production_state_absent() {
   local forbidden_path
   for forbidden_path in \
     "$QA_ISOLATED_USER_ROOT/Library/Application Support/island-app/tasks.sqlite" \
-    "$QA_ISOLATED_USER_ROOT/Library/Application Support/island-app/local-hook-authorization.header"; do
+    "$QA_ISOLATED_USER_ROOT/Library/Application Support/island-app/local-hook-authorization.header" \
+    "$QA_ISOLATED_USER_ROOT/Library/Application Support/island-app/bin/dev-island-hook"; do
     [[ ! -e "$forbidden_path" && ! -L "$forbidden_path" ]] \
       || { echo "error: hermetic production launch created product state" >&2; return 1; }
   done

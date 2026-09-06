@@ -375,6 +375,10 @@ public actor LocalHookServer {
     public let port: Int
     private let retryPolicy: LocalHookServerRetryPolicy
     private let makeAuthorization: @Sendable () throws -> LocalHookAuthorization
+    /// Only the production listener repairs the on-disk Hook launcher. Test,
+    /// hermetic and QA listeners inject their authorization and must never
+    /// write product state into the user's home directory.
+    private let installsLauncher: Bool
     private let suppressFrameworkLogs: Bool
     /// Deterministic lifecycle seams used by strict-join tests. Production
     /// instances always execute the concrete Hummingbird/readiness paths.
@@ -407,6 +411,7 @@ public actor LocalHookServer {
         self.port = port
         retryPolicy = .production
         makeAuthorization = { try LocalHookAuthorizationStore.rotate() }
+        installsLauncher = true
         suppressFrameworkLogs = false
         serveOperationOverride = nil
         readinessOperationOverride = nil
@@ -423,6 +428,7 @@ public actor LocalHookServer {
         self.port = port
         self.retryPolicy = retryPolicy
         makeAuthorization = { authorization }
+        installsLauncher = false
         self.suppressFrameworkLogs = suppressFrameworkLogs
         serveOperationOverride = serveOperation
         readinessOperationOverride = readinessOperation
@@ -439,6 +445,7 @@ public actor LocalHookServer {
         self.port = port
         self.retryPolicy = retryPolicy
         makeAuthorization = authorizationProvider
+        installsLauncher = false
         self.suppressFrameworkLogs = suppressFrameworkLogs
         serveOperationOverride = serveOperation
         readinessOperationOverride = readinessOperation
@@ -569,6 +576,13 @@ public actor LocalHookServer {
                 "LocalHookServer authorization boundary unavailable"
             )
             return
+        }
+        // The launcher is Dev Island's own file, so repairing it needs no user
+        // action. It is deliberately outside the authorization boundary above:
+        // a launcher that cannot be written must never make the listener
+        // unavailable, because Hooks that cannot find it simply fail open.
+        if installsLauncher {
+            LocalHookLauncher.selfHeal()
         }
         let agents = self.agents
         let onActionRequest = self.onActionRequest
