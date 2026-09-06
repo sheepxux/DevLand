@@ -2078,6 +2078,63 @@ private struct ManusServiceRow: View {
 
 }
 
+// MARK: - Guided Codex trust
+
+/// One action for the only vendor-side step Dev Island cannot do itself:
+/// copy the review command, bring Codex forward, and say exactly which
+/// entries to trust. Trust is read back when the app becomes active again.
+private struct CodexTrustGuidanceRow: View {
+    let descriptor: LocalAgentDescriptor
+    @State private var codexUnavailable = false
+    @Environment(\.devIslandLanguage) private var language
+
+    private var reviewCommand: String {
+        CodexTrustGuidance.reviewCommand(descriptor: descriptor) ?? "/hooks"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(CodexTrustGuidance.summary(language: language))
+                .font(.system(size: 11))
+                .foregroundStyle(Palette.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text(verbatim: CodexTrustGuidance.entryNames(descriptor: descriptor).joined(separator: " · "))
+                .font(.system(size: 10.5, weight: .medium, design: .monospaced))
+                .foregroundStyle(Palette.warmWhite.opacity(0.82))
+                .textSelection(.enabled)
+                .accessibilityLabel(L10n.string("Dev Island entries to trust in Codex", language: language))
+                .accessibilityValue(CodexTrustGuidance.entryNames(descriptor: descriptor).joined(separator: ", "))
+
+            HStack(spacing: 10) {
+                Button {
+                    codexUnavailable = !CodexTrustGuidance.openCodexAndCopyReviewCommand()
+                } label: {
+                    Text(CodexTrustGuidance.actionTitle(language: language))
+                }
+                .buttonStyle(SettingsControlButtonStyle())
+                .accessibilityHint(L10n.format(
+                    "Copies %@ to the clipboard and brings Codex to the front",
+                    language: language,
+                    reviewCommand
+                ))
+
+                if codexUnavailable {
+                    Text(L10n.format(
+                        "Codex is not installed on this Mac. %@ is on the clipboard for when it is.",
+                        language: language,
+                        reviewCommand
+                    ))
+                        .font(.system(size: 11))
+                        .foregroundStyle(Palette.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+        .padding(.top, 2)
+    }
+}
+
 // MARK: - Local agent row (registry-driven)
 
 /// Enables/disables a local agent integration by installing hook entries
@@ -2209,10 +2266,27 @@ private struct LocalAgentServiceRow: View {
                     .font(.system(size: 11))
                     .foregroundStyle(Palette.stateFailed)
             }
+
+            if configurationState.installationState == .current,
+               descriptor.hookActivationRequirement.reviewCommand != nil,
+               !isVendorActivationVerified,
+               !isCheckingVendorActivation,
+               !connectionsOperation.isMutating {
+                CodexTrustGuidanceRow(descriptor: descriptor)
+            }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
         .onAppear { refreshInstallationState() }
+        // The user comes back from Codex after trusting the entries; re-read
+        // the trust state then instead of asking for another click.
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            if configurationState.installationState == .current,
+               descriptor.hookActivationRequirement.reviewCommand != nil,
+               !isVendorActivationVerified {
+                refreshVendorActivationIfNeeded()
+            }
+        }
         .onChange(of: refreshToken) { _, _ in refreshInstallationState() }
         .onDisappear {
             configurationState.invalidate()

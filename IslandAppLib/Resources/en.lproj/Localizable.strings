@@ -491,6 +491,13 @@
 "Update its hook in Settings › Agents." = "Update its hook in Settings › Agents.";
 "Hooks are not reporting" = "Hooks are not reporting";
 
+/* Guided Codex trust */
+"Codex trusts a hook once. Open Codex, run %@, and trust these %lld Dev Island entries:" = "Codex trusts a hook once. Open Codex, run %@, and trust these %lld Dev Island entries:";
+"Open Codex and copy %@" = "Open Codex and copy %@";
+"Copies %@ to the clipboard and brings Codex to the front" = "Copies %@ to the clipboard and brings Codex to the front";
+"Codex is not installed on this Mac. %@ is on the clipboard for when it is." = "Codex is not installed on this Mac. %@ is on the clipboard for when it is.";
+"Dev Island entries to trust in Codex" = "Dev Island entries to trust in Codex";
+
 /* Global decision shortcuts */
 "Decide from Anywhere" = "Decide from Anywhere";
 "Press ⌃⌥⌘Y to allow or ⌃⌥⌘N to deny the request at the front of the island while any app is active. Questions and plan reviews open the island instead." = "Press ⌃⌥⌘Y to allow or ⌃⌥⌘N to deny the request at the front of the island while any app is active. Questions and plan reviews open the island instead.";

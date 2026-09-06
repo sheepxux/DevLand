@@ -491,6 +491,13 @@
 "Update its hook in Settings › Agents." = "在设置 › Agent 中更新它的 Hook。";
 "Hooks are not reporting" = "Hook 没有汇报";
 
+/* Guided Codex trust */
+"Codex trusts a hook once. Open Codex, run %@, and trust these %lld Dev Island entries:" = "Codex 只需信任一次 Hook。打开 Codex，输入 %@，信任下面这 %lld 条 Dev Island 条目：";
+"Open Codex and copy %@" = "打开 Codex 并复制 %@";
+"Copies %@ to the clipboard and brings Codex to the front" = "把 %@ 复制到剪贴板并把 Codex 切到前台";
+"Codex is not installed on this Mac. %@ is on the clipboard for when it is." = "这台 Mac 上没有安装 Codex。%@ 已在剪贴板里，装好后即可粘贴。";
+"Dev Island entries to trust in Codex" = "需要在 Codex 中信任的 Dev Island 条目";
+
 /* Global decision shortcuts */
 "Decide from Anywhere" = "随时随地做决定";
 "Press ⌃⌥⌘Y to allow or ⌃⌥⌘N to deny the request at the front of the island while any app is active. Questions and plan reviews open the island instead." = "在任何应用中按 ⌃⌥⌘Y 允许、按 ⌃⌥⌘N 拒绝岛中排在最前的请求。问题与计划审阅会改为打开岛。";

@@ -5,6 +5,17 @@
 
 ---
 
+## Codex 一步信任引导（v6.91.0）
+
+- Settings › Agents 的 Codex 卡在 `installationState == .current` 且信任未验证时，显示
+  `CodexTrustGuidance`：一句固定说明、从 `LocalAgentDescriptor.codex.hookEvents` 派生的条目名
+  （不得硬编码）以及"打开 Codex 并复制 /hooks"按钮。按钮只把 `reviewCommand` 放进系统剪贴板并按
+  bundle id `com.openai.codex` 激活 Codex；Dev Island 不得向 Codex 输入、启动线程或改动信任。
+  Codex 未安装时剪贴板仍被填充并显示固定提示。
+- App 重新成为活跃应用时，卡片在信任未验证的前提下自动重跑既有 `refreshVendorActivationIfNeeded()`
+  只读探针；不新增 `LocalAgentConfigurationExecutor.run(` 调用（SettingsView 仍为 4 处、
+  OnboardingView 仍为 2 处）。Welcome 第四步的 Codex `configured` 分支复用同一按钮。
+
 ## 本地 Agent Hook 心跳（v6.91.0）
 
 - `LocalAgentActivityProbe` 只对已知供应商（codex → `~/.codex/sessions` 与 `archived_sessions`

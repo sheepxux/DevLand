@@ -806,6 +806,19 @@ struct OnboardingView: View {
                         ),
                         isLocalized: true
                     )
+                    Button {
+                        _ = CodexTrustGuidance.openCodexAndCopyReviewCommand()
+                    } label: {
+                        Text(CodexTrustGuidance.actionTitle(language: language))
+                            .font(.system(size: 9, weight: .semibold))
+                    }
+                    .buttonStyle(AgentConnectButtonStyle())
+                    .accessibilityHint(L10n.format(
+                        "Copies %@ to the clipboard and brings Codex to the front",
+                        language: language,
+                        "/hooks"
+                    ))
+                    .padding(.leading, 12)
 
                 case .cursorChat:
                     liveSignalInstruction(

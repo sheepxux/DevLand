@@ -2434,3 +2434,24 @@ Dependabot security updates 六项控制；未经明确授权未修改远端设�
 - [ ] Claude Code 用量洞察未做：Claude Code 本地只写 token 计数，不写服务商额度窗口；按「不把推测值
   包装成官方额度」原则，暂不实现。
 - [ ] 快捷键真机按键、分支标签与今日汇总的真实视觉、VoiceOver 及 Welcome 第四步真实命令验收仍待解锁。
+
+## 2026-09-05 一次连接、持续在线：托管启动器 + 心跳 + 一步信任
+
+- [x] 根因：用户机器上 Codex 受信任的是竞品 Vibe Island 留下的死条目，Dev Island 的 5 条内联 curl
+  Hook 未信任，Codex 静默跳过，岛空白。Vibe Island 的"固定启动器行"值得学，其自清理重写全部
+  Agent 配置的做法不学。
+- [x] `72a797d` 启动器构件：`LocalHooksInstaller.launcherScript()` 从注册表渲染无模板变量的静态
+  `sh`；`LocalHookLauncher` 以 `0700`/单链接/字节精确安装到 `island-app/bin/dev-island-hook`，
+  stale 原地修复、unsafe 只报告；生产监听器在授权轮换后非致命自愈；两个 QA 隔离门禁禁止它出现。
+- [x] `e54811a` 翻转配置行：所有命令式 Hook 固定为 `"${HOME}/…/bin/dev-island-hook" --route
+  /hooks/<source> --event <Event> --port 7824 || true`；`/hooks/<source>` 继续作 marker，JSON 安装
+  先清全部事件下的管理条目；真实回环 harness 在隔离 HOME 装启动器跑真实行；契约 v6.90.0。
+- [x] `904f620` 心跳：`LocalAgentActivityProbe` 只读 Codex/Claude Code 会话文件的类型与 mtime，
+  `TaskStore` 记录每 source 最后事件时间，按需（展开/菜单/Settings）推导 not-reporting；空闲岛、
+  状态菜单与 Settings 提示"X 正在运行但没有向岛汇报"并给出下一步；契约 v6.91.0。
+- [x] 一步信任：Settings Codex 卡与 Welcome 第四步的"打开 Codex 并复制 /hooks"，条目名从注册表派生，
+  App 回到前台时自动重探信任。
+- [x] 当前源码 **940 tests / 0 failures**；Localization、Legal/Data Flow、Performance、Release
+  Foundation、Hermetic listener 门禁 PASS；Security 门禁只剩三份 0.3.0 回执的已知失败。
+- [ ] 迁移语义：升级后旧 curl 行显示 update-required，需要在 Settings 更新一次；Codex 需 `/hooks`
+  重新信任一次。真实 Codex 会话验证 not-reporting → 信任 → reporting 的闭环仍待实机。
