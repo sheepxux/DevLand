@@ -80,7 +80,10 @@ menu-bar item keeps the same controls within reach.
 
 Local integrations need no Dev Island account and no API key. Enable one from
 the Welcome Tour or **Settings → Connected Services**. Dev Island adds only
-its own hook entries and preserves the rest of each tool's configuration.
+its own hook entries and preserves the rest of each tool's configuration. Each
+entry is one fixed line that points at a launcher Dev Island keeps in
+`~/Library/Application Support/island-app/bin`, so a Hook you have reviewed never
+changes when Dev Island updates.
 Codex separately trusts each non-managed Hook definition by its current hash.
 After setup, Dev Island briefly asks the OpenAI-signed Codex App Server for
 Hook metadata on-device. It reports **Connected** only when every exact Dev
@@ -286,7 +289,8 @@ Dev Island 把这些会话集中到 MacBook 顶部的一块小界面中。任务
 
 本地连接器不需要注册 Dev Island 账号，也不需要 API Key。可以在首次欢迎引导，
 或 **设置 → Connected Services** 中启用。Dev Island 只写入自己的 Hook 条目，
-不会覆盖工具原有的其他配置。本机监听器会验证端口确由当前进程持有；发生端口冲突
+不会覆盖工具原有的其他配置。每条 Hook 都是一行固定不变的命令，指向 Dev Island 自己维护在
+`~/Library/Application Support/island-app/bin` 里的启动器，因此你审阅过的 Hook 不会因为 Dev Island 升级而改变。本机监听器会验证端口确由当前进程持有；发生端口冲突
 时自动重试，并在设置中明确提示和提供恢复按钮，不会静默失效。
 Codex 会按当前 Hook 定义的哈希单独记录非托管 Hook 的信任状态。配置后，Dev Island
 只会在本机短暂调用 OpenAI 签名的 Codex App Server 读取 Hook 元数据；只有每个精确的

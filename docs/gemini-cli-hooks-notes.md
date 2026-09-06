@@ -45,7 +45,7 @@ Gemini 使用带空 matcher 的嵌套 command group。每个已订阅事件的�
         "hooks": [
           {
             "type": "command",
-            "command": "curl --noproxy 127.0.0.1 -sf -m 2 -X POST http://127.0.0.1:7824/hooks/gemini-cli -H 'Content-Type: application/json' -H 'X-Dev-Island-Hook: v1' -H \"@${HOME}/Library/Application Support/island-app/local-hook-authorization.header\" --data-binary @- >/dev/null 2>&1 || true"
+            "command": "\"${HOME}/Library/Application Support/island-app/bin/dev-island-hook\" --route /hooks/gemini-cli --event SessionStart --port 7824 || true"
           }
         ]
       }
@@ -89,7 +89,7 @@ payload 仍可能在传输瞬间包含 prompt、response、transcript path 或 d
 - route 必须拒绝 `Origin` 以及缺失/错误的 `X-Dev-Island-Hook: v1`；该非 simple-request
   Header 强制浏览器 fetch 预检且服务器不授权 CORS，旧 managed command 必须显示需更新；
 - 每次监听启动必须轮换 256-bit `X-Dev-Island-Authorization`，命令只通过 owner-only
-  `0600` Header 文件和 curl `-H @file` 读取；值不得进入 Gemini 配置、argv、日志或诊断，
+  `0600` Header 文件和托管启动器内 curl `-H @file` 读取；值不得进入 Gemini 配置、argv、日志或诊断，
   旧 epoch/缺失/错误凭据不得解码或交付 payload；
 - 原始 body 不得落盘、写日志、进入诊断或遥测；
 - 只把标准化任务字段写入本地 SQLite；

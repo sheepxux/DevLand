@@ -111,7 +111,7 @@ The connector and installer suites cover:
 7. preservation of user fields and unrelated Hooks;
 8. idempotent install, stale managed-command repair, and surgical uninstall;
 9. invalid JSON and wrong-version byte preservation; and
-10. a real command → curl → loopback server → normalized Waiting event with
+10. a real command → managed launcher → curl → loopback server → normalized Waiting event with
     terminal/tmux context and no action request.
 
 ## Real acceptance checklist

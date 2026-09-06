@@ -81,7 +81,7 @@ island when it can leave Waiting. This gives useful attention without creating
 two competing approval authorities.
 
 Although `Stop` is blockable upstream, Dev Island's command discards stdout,
-ends in `|| true`, and is bounded by curl's two-second timeout plus a five-second
+ends in `|| true`, and is bounded by the launcher's two-second curl timeout plus a five-second
 Kimi Hook timeout. It cannot ask the model to continue or inject content.
 
 ## Data minimization

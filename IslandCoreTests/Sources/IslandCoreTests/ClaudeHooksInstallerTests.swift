@@ -100,15 +100,18 @@ final class ClaudeHooksInstallerTests: XCTestCase {
         // The trailing `|| true` is a hard requirement: a dead Dev Island
         // must never surface as a hook error inside Claude Code.
         XCTAssertTrue(ClaudeHooksInstaller.hookCommand().hasSuffix("|| true"))
-        XCTAssertTrue(ClaudeHooksInstaller.hookCommand().contains("-m 2"))
+        XCTAssertTrue(ClaudeHooksInstaller.hookCommand().hasPrefix(LocalHookLauncher.shellPath))
+        XCTAssertTrue(LocalHooksInstaller.launcherScript().contains("send 2 >/dev/null 2>&1 || true"))
     }
 
     func testPermissionRequestIsSynchronousAndKeepsStdout() {
         let command = LocalHooksInstaller(.claudeCode)
             .hookCommand(for: "PermissionRequest")
-        XCTAssertTrue(command.contains("-m 95"))
-        XCTAssertFalse(command.contains("@- >/dev/null"))
+        XCTAssertTrue(command.contains("--route /hooks/claude-code --event PermissionRequest --port 7824"))
         XCTAssertTrue(command.hasSuffix("|| true"))
+        let script = LocalHooksInstaller.launcherScript()
+        XCTAssertTrue(script.contains("/hooks/claude-code/PermissionRequest"), "waits for the decision")
+        XCTAssertTrue(script.contains("send 95 2>/dev/null || true"), "stdout carries the decision")
     }
 
     func testPermissionRequestWritesTimeoutAndStatus() throws {
@@ -131,8 +134,8 @@ final class ClaudeHooksInstallerTests: XCTestCase {
         let handlers = try XCTUnwrap(group["hooks"] as? [[String: Any]])
         let handler = try XCTUnwrap(handlers.first)
         let command = try XCTUnwrap(handler["command"] as? String)
-        XCTAssertTrue(command.contains("-m 95"))
-        XCTAssertFalse(command.contains("@- >/dev/null"))
+        XCTAssertTrue(command.contains("--route /hooks/claude-code --event PreToolUse --port 7824"))
+        XCTAssertTrue(LocalHooksInstaller.launcherScript().contains("/hooks/claude-code/PreToolUse"))
         XCTAssertEqual(handler["timeout"] as? Int, 100)
         XCTAssertEqual(handler["statusMessage"] as? String, "Waiting for Dev Island")
     }

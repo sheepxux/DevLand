@@ -34,7 +34,7 @@ user-level `~/.qwen/settings.json` file. The installed shape is:
         "hooks": [
           {
             "type": "command",
-            "command": "curl … http://127.0.0.1:7824/hooks/qwen-code …",
+            "command": "\"${HOME}/Library/Application Support/island-app/bin/dev-island-hook\" --route /hooks/qwen-code --event PermissionRequest --port 7824 || true",
             "timeout": 100000,
             "statusMessage": "Waiting for Dev Island"
           }
@@ -46,8 +46,9 @@ user-level `~/.qwen/settings.json` file. The installed shape is:
 ```
 
 The `100000` timeout is milliseconds, as required by Qwen command Hooks. The
-inner curl keeps a shorter 95-second bound. Lifecycle handlers use a two-second
-curl timeout, discard stdout/stderr and finish with `|| true`. If Dev Island is
+inner curl inside the managed launcher keeps a shorter 95-second bound. Lifecycle
+handlers use a two-second curl timeout inside the launcher, discard stdout/stderr,
+and the vendor line finishes with `|| true`. If Dev Island is
 closed, Qwen keeps its native behavior instead of failing the turn.
 
 Install and update merge with existing JSON. Uninstall removes only Dev

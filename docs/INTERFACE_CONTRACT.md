@@ -1,9 +1,35 @@
 # IslandCore Interface Contract
 
-> 最后更新: 2026-09-02 | 版本: v6.89.0
+> 最后更新: 2026-09-05 | 版本: v6.90.0
 > 变更流程: 改 TaskStore 公开 API 前更新此文档,commit 用 `[S][contract]` tag。
 
 ---
+
+## 托管本地 Hook 启动器（v6.90.0）
+
+- 每个命令式连接器写入 Agent 配置的 Hook 行必须精确为
+  `"${HOME}/Library/Application Support/island-app/bin/dev-island-hook" --route /hooks/<source> --event <Event> --port 7824 || true`。
+  行内不得出现端口以外的传输细节：协议 Header、授权 Header 文件、终端/tmux 提示、超时与
+  重定向全部只存在于启动器内。`/hooks/<source>` 路由继续充当管理条目 marker，因此旧的内联
+  curl 行与新行由同一 marker 识别、更新与卸载；`|| true` 保证启动器缺失时 Agent 仍 fail-open。
+- 启动器由 `LocalHooksInstaller.launcherScript()` 从注册表渲染为无模板变量的静态 POSIX `sh`
+  程序：动作事件表（`actionHookEvents`）与不带终端提示的路由（`usesTerminalFallback == false`）
+  是唯一的注册表输入；`--route/--event/--port` 参数须通过字符集校验，否则直接 `exit 0`。
+  动作事件使用 `/usr/bin/curl -m 95` 并保留 stdout，其余事件 `-m 2` 并丢弃输出；授权值每次调用
+  从 `-H @<private-header-file>` 读取，绝不缓存。
+- `LocalHookLauncher` 只接受当前用户拥有、单硬链接、`0700`、不超过 64 KiB 且字节精确等于模板的
+  普通文件为 `current`；字节不同为 `stale` 并原地修复；链接、他人拥有、错误 mode、多硬链接或
+  超限一律 `unsafe`，只报告不替换。父目录 `bin` 为 `0700`，写入沿用 `ManagedConfigFile` 的
+  原子替换与提交前复验。
+- 只有生产监听器（`LocalHookAuthorizationStore.rotate()` 路径）在每次授权轮换成功之后非致命地
+  自愈启动器；注入授权的测试、hermetic 与 QA 监听器不得写入它，两个 QA 隔离门禁把
+  `island-app/bin/dev-island-hook` 列为禁止出现的产品状态。启动器写入失败不得让监听器
+  `unavailable`。
+- 无显式 `configURL` 的生产 `install()` 先确保启动器为 `current` 再写配置；JSON 安装先移除
+  所有事件下的管理条目再追加当前集合，旧事件下遗留的内联 curl 行不得残留。
+- 迁移语义：升级到本版本后，旧内联 curl 行显示为 update-required，用户在 Settings 更新一次；
+  Codex 因定义变化需在 `/hooks` 重新信任**一次**，此后 Dev Island 升级不再改动该行。
+  `CodexHookTrustProbe` 继续以 `hookCommand(for:)` 为期望定义。
 
 ## 可信代码身份单实例接管（v6.84.0）
 
@@ -1375,7 +1401,7 @@ public struct HermeticLocalListenerReadinessHarness: Sendable {
 - Qwen Code 固定到 `@qwen-code/qwen-code@0.22.0` 与上游 commit
   `e38665674e2978f98cd35e7c6f6eac057741647f`；只订阅七个低频 lifecycle、attention
   与 `PermissionRequest` 事件。其 command Hook 超时单位是毫秒，安装器写 `100000`，
-  内层 curl 仍以 95 秒失败中立；Allow/Deny 使用官方结构化 `decision.behavior`。
+  启动器内层 curl 仍以 95 秒失败中立；Allow/Deny 使用官方结构化 `decision.behavior`。
   真实登录 CLI、Hooks UI/debug 与端到端验收前 `releaseStage == .preview`
 - GitHub Copilot CLI 固定到 `@github/copilot@1.0.80`、tag commit
   `ef627e1baad937d3c8da45f8a5541c6fc3c97b6a` 与 GitHub Docs Hook reference
@@ -1470,7 +1496,7 @@ public struct HermeticLocalListenerReadinessHarness: Sendable {
   它的目的在于把 browser fetch/XHR 从 simple request 提升为必须 CORS preflight 的请求，
   同时让普通 HTML form POST 无法满足路由契约。监听器不得返回
   `Access-Control-Allow-Origin` 或允许该 Header 的 CORS 响应。
-- `LocalHooksInstaller` 生成的全部 passive/action curl 命令与 OpenCode 完整插件必须使用
+- `LocalHooksInstaller` 生成的全部 Hook 行所指向的托管启动器与 OpenCode 完整插件必须使用
   同一常量。旧 managed command/plugin 因逐字节不匹配显示 update-required；不得为了兼容
   旧 Header-less 定义而在服务端降级接受。
 - 真实 HTTP 回归必须覆盖合法 curl/URLSession 往返、携带正确 Header 但含恶意 Origin、
@@ -1492,8 +1518,8 @@ public struct HermeticLocalListenerReadinessHarness: Sendable {
   descriptor-backed 原子替换边界生成，最终为当前用户所有、单硬链接、regular file、
   `0600` 且不超过 128 bytes；链接、错误 owner/type、超限、父目录可写或并发替换均失败
   关闭。随机源或文件边界失败时 listener 必须保持 `unavailable`，不得退回无授权监听。
-- curl managed Hook 只能以 `-H @<private-header-file>` 运行时读取，不得把随机值写入
-  Agent 配置或 argv。OpenCode 插件只保存相同相对路径，每次事件通过 Bun Blob slice
+- 托管启动器内的 curl 只能以 `-H @<private-header-file>` 运行时读取，不得把随机值写入
+  Agent 配置、启动器行或 argv。OpenCode 插件只保存相同相对路径，每次事件通过 Bun Blob slice
   有界读取最多 129 bytes、严格解析单行 Header 后再发请求；文件缺失/异常时静默 fail-open
   到 Agent 原生体验，不得发送无凭据请求。
 - 监听重启/自动重试会先轮换文件；旧 listener 仍由 epoch gate 禁止交付，旧凭据不能命中
@@ -1530,7 +1556,7 @@ public struct HermeticLocalListenerReadinessHarness: Sendable {
   `pendingActionRequests`。不得恢复为未等待的 MainActor `Task`，否则旧 Waiting snapshot
   可能在用户 Allow/Deny 后晚到并覆盖已恢复的 Running 状态。
 - 不产生动作请求的 passive lifecycle Hook 继续保持 fail-open：HTTP `{}` 响应不得等待
-  MainActor 或 SQLite，避免 2 秒 curl 预算因历史持久化抖动而耗尽；后台交付前仍需复验
+  MainActor 或 SQLite，避免启动器 2 秒 curl 预算因历史持久化抖动而耗尽；后台交付前仍需复验
   当前 listener epoch。只有同步决策 payload 才进入上面的严格等待顺序。
 - action decoder 返回的 `source` 必须逐字等于当前 descriptor/endpoint source；若同一
   payload 也能解码 lifecycle event，两者的 session ID 必须相同。任一不一致只返回 `{}`，
@@ -2965,4 +2991,5 @@ public struct HermeticLocalListenerReadinessHarness: Sendable {
 | 2026-08-31 | v6.86.0 | **Manus unknown-registration 原子 reconciliation**:官方 `GET /v2/webhook.list` 严格接收最多 1,024 项账号 inventory；单一 `webhookRecoveryStateV1` envelope 将 ID ledger、token、callback digest、±300 秒时间身份与 discovered IDs 一起 flush/readback。只归属 active exact-digest 且唯一 marker 的 row，歧义/空 list/legacy/corrupt 全部失败关闭；bound ID 跨重启直接重试，严格 official 404 `not_found` 完成幂等删除。Release gate 仍关闭，真实 create→signed delivery→list/delete 与一致性证据待补 | `[S][contract] security: reconcile unknown Manus registrations without guessing ownership` |
 | 2026-09-02 | v6.87.0 | **系统级决策快捷键**:`⌃⌥⌘Y` / `⌃⌥⌘N` 经 Carbon `RegisterEventHotKey` 注册，无需辅助功能授权，任何 App 前台时作用于 `pendingActionRequests.first`；仅 `.permission` 可被直接 Allow/Deny，`.question` 与 `.planReview` 只展开岛并高亮会话，空队列只展开岛。成功交付后发布 `islandGlobalDecisionApplied`，面板显示与岛内点击相同回执。开关 `island.shortcuts.globalDecisions` 默认开启，关闭即注销热键；`Esc` 语义不变 | `[C][contract] feat(app): decide the front permission request from any app` |
 | 2026-09-02 | v6.88.0 | **今日活动汇总**:`TaskStore.todayActivity` / `refreshTodayActivity(now:)` 暴露当天会话数、总活跃秒数与 Allow 次数；SQLite 只投影 `created_at`/`updated_at` 两列并沿用 bounded-row 谓词与 verified-read；Allow 计数按本地日分桶存于偏好、上限 100,000，Clear History 一并重置；只在 bootstrap、面板展开与菜单打开时刷新，不轮询。展示为状态菜单一行与空闲岛一行，只含数字与固定文案 | `[S][contract] feat(core): summarize today's sessions, approvals and agent time` |
+| 2026-09-05 | v6.90.0 | **托管本地 Hook 启动器**:所有命令式 Hook 行固定为 `"${HOME}/…/island-app/bin/dev-island-hook" --route /hooks/<source> --event <Event> --port 7824 \|\| true`；传输细节全部移入注册表渲染的静态 `sh` 启动器（`0700`、单链接、字节精确、unsafe 不替换），生产监听器在授权轮换后非致命自愈；`/hooks/<source>` 继续作为 marker，JSON 安装先清除全部事件下的管理条目；Codex 只需在 `/hooks` 重新信任一次，此后 Dev Island 升级不再改动定义 | `[S][contract] feat(core): point every Hook at a fixed managed launcher` |
 | 2026-09-02 | v6.89.0 | **Welcome 第四步「点亮你的岛」**:四页共用同一固定几何；第四页先以 `localHookServiceStatus == .listening` 为门，再按已连接 Agent 给出 verbatim 命令（`claude -p "say hi"` / `codex exec "say hi"` / Codex `/hooks` 两段指引 / Cursor）与复制按钮；`OnboardingLiveSignalState` 只读 `TaskStore.tasks`、前向锁存 `.waiting → .seen → .completed` 且不因 SessionEnd 回退；不接管 `onTaskTransition`、无 `Task.detached`、`LocalAgentConfigurationExecutor.run(` 仍精确两处 | `[C][contract] feat(app): light up the island at the end of the Welcome Tour` |

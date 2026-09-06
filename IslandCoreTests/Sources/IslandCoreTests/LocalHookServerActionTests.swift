@@ -1671,6 +1671,11 @@ final class LocalHookServerActionTests: XCTestCase {
         let input = Pipe()
         var mergedEnvironment = ProcessInfo.processInfo.environment
         mergedEnvironment.merge(environment) { _, new in new }
+        // The managed line runs the launcher from this HOME, exactly as a
+        // vendor would after Dev Island installed it.
+        try LocalHookLauncher.ensureInstalled(
+            at: LocalHookLauncher.url(homeDirectory: isolatedHome)
+        )
         mergedEnvironment["HOME"] = isolatedHome.path
         process.executableURL = URL(fileURLWithPath: "/bin/zsh")
         process.arguments = ["-c", command]

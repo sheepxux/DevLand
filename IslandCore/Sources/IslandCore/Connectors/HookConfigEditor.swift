@@ -125,7 +125,14 @@ enum HookConfigEditor {
         // byte-for-byte untouched; treating it as empty would destroy user
         // settings merely because one integration could not understand them.
         let original = try ManagedConfigFile.snapshotIfExists(at: url)
-        var root = try rootForInstall(from: original?.data, at: url)
+        // Strip every managed handler first — including legacy lines under
+        // events this release no longer installs — so an install is always
+        // "remove ours everywhere, then add the current set" and stale
+        // commands can never linger next to current ones.
+        let base: Data? = try original.map { snapshot in
+            try preparedUninstall(from: snapshot.data, at: url, marker: marker) ?? snapshot.data
+        }
+        var root = try rootForInstall(from: base, at: url)
         for (key, value) in rootDefaults {
             if let existing = root[key] {
                 guard jsonValuesEqual(existing, value) else {

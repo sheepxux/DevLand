@@ -53,7 +53,7 @@ fixed browser-preflight marker and a separate 256-bit random authorization
 value that rotates whenever the listener starts or retries. The value is kept
 only in memory and in the current user's private
 `~/Library/Application Support/island-app/local-hook-authorization.header`
-file (maximum 128 bytes, mode `0600`). Managed curl commands read that file
+file (maximum 128 bytes, mode `0600`). The managed Hook launcher reads that file
 directly, and the OpenCode plugin stores only its path and reads a bounded
 slice. The value is never written into Agent configuration, plugin source,
 process arguments, SQLite, logs, copied/saved diagnostics, or a remote service.
@@ -590,7 +590,7 @@ SQLite、日志、历史页面或复制的诊断。点击 tmux 会话时只把�
 所有会改变本地会话状态的 Hook 请求还必须同时携带固定的浏览器预检标记，以及每次
 监听启动或重试都会轮换的 256-bit 随机授权值。该值只短暂存在于内存和当前用户私有的
 `~/Library/Application Support/island-app/local-hook-authorization.header` 文件中；文件
-最多 128 bytes、权限为 `0600`。托管 curl 命令直接通过 Header 文件读取，OpenCode 插件
+最多 128 bytes、权限为 `0600`。托管 Hook 启动器直接通过 Header 文件读取，OpenCode 插件
 只保存路径并有界读取。授权值不会写入 Agent 配置、插件源码、进程参数、SQLite、日志、
 复制/保存的诊断或任何远程服务。这会阻止同一台 Mac 上的其他用户伪造 Hook；当前登录
 用户下能够读取该文件的进程仍属于本地用户信任边界。

@@ -58,12 +58,14 @@ final class CopilotCLIHooksInstallerTests: XCTestCase {
 
     func testPassiveCommandIsBoundedFailOpenAndDiscardsOutput() {
         let command = installer.hookCommand()
-        XCTAssertTrue(command.contains("--noproxy 127.0.0.1"))
-        XCTAssertTrue(command.contains("-m 2"))
-        XCTAssertTrue(command.contains("http://127.0.0.1:7824/hooks/copilot-cli"))
-        XCTAssertTrue(command.contains("--data-binary @-"))
-        XCTAssertTrue(command.contains(">/dev/null 2>&1"))
+        XCTAssertTrue(command.hasPrefix(LocalHookLauncher.shellPath))
+        XCTAssertTrue(command.contains("--route /hooks/copilot-cli --event "))
+        XCTAssertTrue(command.contains("--port 7824"))
         XCTAssertTrue(command.hasSuffix("|| true"))
+        let script = LocalHooksInstaller.launcherScript()
+        XCTAssertTrue(script.contains("--noproxy 127.0.0.1"))
+        XCTAssertTrue(script.contains("--data-binary @-"))
+        XCTAssertTrue(script.contains("send 2 >/dev/null 2>&1 || true"))
     }
 
     func testInstallRendersDedicatedVersionedFlatFile() throws {
@@ -78,7 +80,7 @@ final class CopilotCLIHooksInstallerTests: XCTestCase {
         for event in LocalAgentDescriptor.copilotCLI.hookEvents {
             let groups = try XCTUnwrap(hooks[event] as? [[String: Any]])
             XCTAssertEqual(groups.count, 1)
-            XCTAssertEqual(groups[0]["command"] as? String, installer.hookCommand())
+            XCTAssertEqual(groups[0]["command"] as? String, installer.hookCommand(for: event))
             XCTAssertNil(groups[0]["hooks"])
             XCTAssertNil(groups[0]["matcher"])
         }
