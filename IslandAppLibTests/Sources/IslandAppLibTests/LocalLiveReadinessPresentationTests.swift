@@ -141,8 +141,8 @@ final class LocalLiveReadinessPresentationTests: XCTestCase {
         XCTAssertEqual(content.title, "1 setup action remains")
         XCTAssertEqual(
             content.detail,
-            "In Codex /hooks, review and trust only the Dev Island entries. "
-                + "“Continue without trusting” keeps approvals outside the island."
+            "For manual setup, use /hooks in Codex CLI to trust only Dev Island entries. "
+                + "Otherwise, use Review and authorize hooks below."
         )
     }
 
@@ -160,8 +160,8 @@ final class LocalLiveReadinessPresentationTests: XCTestCase {
         XCTAssertEqual(content.title, "还需完成 1 项设置")
         XCTAssertEqual(
             content.detail,
-            "请在 Codex /hooks 中审阅并仅信任 Dev Island 条目；"
-                + "选择“无信任继续”会让审批留在 Codex，不会进入灵动岛。"
+            "手动设置时，请在 Codex CLI 中输入 /hooks，仅信任 Dev Island 条目；"
+                + "也可以使用下方的“审阅并授权 Hook”。"
         )
     }
 

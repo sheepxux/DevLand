@@ -29,14 +29,14 @@ final class LocalAgentReportingPresentationTests: XCTestCase {
         )
         XCTAssertEqual(notice?.source, "codex", "Codex first: its trust gate is the common cause")
         XCTAssertEqual(notice?.title, "Codex is running but not reporting to the island.")
-        XCTAssertEqual(notice?.hint, "Open Codex and run /hooks to trust the Dev Island hooks.")
+        XCTAssertEqual(notice?.hint, "Check session monitoring and approval authorization in Settings › Agents.")
 
         let chinese = LocalAgentReportingPresentation.notice(
             snapshot([("codex", "Codex", .notReporting)]),
             language: .simplifiedChinese
         )
         XCTAssertEqual(chinese?.title, "Codex 正在运行，但没有向岛汇报。")
-        XCTAssertEqual(chinese?.hint, "打开 Codex 并输入 /hooks，信任 Dev Island 的 Hook。")
+        XCTAssertEqual(chinese?.hint, "在设置 › Agent 中检查会话监控和审批授权。")
     }
 
     func testOtherAgentsPointAtSettings() {

@@ -3,6 +3,13 @@ import XCTest
 import IslandCore
 
 final class TaskNotificationPolicyTests: XCTestCase {
+    func testCodexNotificationsDescribeAResponseRatherThanAnEntireTask() {
+        XCTAssertEqual(TaskNotificationKind.completed.title(source: "codex", language: .english), "Response finished")
+        XCTAssertEqual(TaskNotificationKind.failed.title(source: "codex", language: .simplifiedChinese), "本轮回复已中断")
+        XCTAssertEqual(TaskNotificationKind.completed.title(source: "claude-code", language: .english), "Task Completed")
+        XCTAssertEqual(TaskNotificationKind.waiting.title(source: "codex", language: .english), "Task Needs Input")
+    }
+
     func testNewlyDiscoveredWaitingTaskDoesNotNotify() {
         let transition = TaskTransition(task: task(.waiting), oldStatus: nil)
 

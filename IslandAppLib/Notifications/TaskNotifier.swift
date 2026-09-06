@@ -56,7 +56,14 @@ enum TaskNotificationKind: Equatable {
         }
     }
 
-    func title(language: DevIslandLanguage = .current) -> String {
+    func title(source: String? = nil, language: DevIslandLanguage = .current) -> String {
+        if source == "codex" {
+            switch self {
+            case .completed: return L10n.string("Response finished", language: language)
+            case .failed: return L10n.string("Response interrupted", language: language)
+            case .waiting: break
+            }
+        }
         let key: String
         switch self {
         case .waiting:   key = "Task Needs Input"
@@ -284,7 +291,7 @@ public final class TaskNotifier: NSObject, UNUserNotificationCenterDelegate {
         }
 
         let content = UNMutableNotificationContent()
-        content.title = kind.title()
+        content.title = kind.title(source: task.source)
         content.subtitle = sourceDisplayName(task.source)
         content.body = body(for: kind, task: task)
         let soundsEnabled = UserDefaults.standard.bool(

@@ -142,10 +142,20 @@ for invariant in \
     || fail "AppKit status-menu copy must use the app language: $invariant"
 done
 
-rg -Fq 'func title(language: DevIslandLanguage = .current)' "$NOTIFIER" \
+rg -Fq 'func title(source: String? = nil, language: DevIslandLanguage = .current)' "$NOTIFIER" \
   || fail "System notification titles must use the app language"
-rg -Fq 'content.title = kind.title()' "$NOTIFIER" \
+rg -Fq 'content.title = kind.title(source: task.source)' "$NOTIFIER" \
   || fail "System notifications must use the localized semantic title"
+for invariant in \
+  'if source == "codex"' \
+  'L10n.string("Response finished", language: language)' \
+  'L10n.string("Response interrupted", language: language)'; do
+  rg -Fq "$invariant" "$NOTIFIER" \
+    || fail "Codex notifications must describe localized response boundaries: $invariant"
+done
+rg -Fq 'func testCodexNotificationsDescribeAResponseRatherThanAnEntireTask()' \
+  IslandAppLibTests/Sources/IslandAppLibTests/TaskNotificationPolicyTests.swift \
+  || fail "Codex response notification regression coverage is required"
 
 for invariant in \
   '@Environment(\.devIslandLanguage) private var language' \

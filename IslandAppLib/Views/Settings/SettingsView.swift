@@ -1502,6 +1502,7 @@ private struct ConnectedServicesSection: View {
                     if descriptor.source != filteredLocalAgents.first?.source { rowDivider }
                     LocalAgentServiceRow(
                         descriptor: descriptor,
+                        store: store,
                         refreshToken: installationRefreshToken,
                         connectionsOperation: $connectionsOperation
                     )
@@ -2080,17 +2081,12 @@ private struct ManusServiceRow: View {
 
 // MARK: - Guided Codex trust
 
-/// One action for the only vendor-side step Dev Island cannot do itself:
-/// copy the review command, bring Codex forward, and say exactly which
-/// entries to trust. Trust is read back when the app becomes active again.
+/// Opens an explicit review before the signed Codex API grants hook trust.
 private struct CodexTrustGuidanceRow: View {
     let descriptor: LocalAgentDescriptor
-    @State private var codexUnavailable = false
+    let onAuthorized: () -> Void
+    @State private var showsAuthorization = false
     @Environment(\.devIslandLanguage) private var language
-
-    private var reviewCommand: String {
-        CodexTrustGuidance.reviewCommand(descriptor: descriptor) ?? "/hooks"
-    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -2106,32 +2102,21 @@ private struct CodexTrustGuidanceRow: View {
                 .accessibilityLabel(L10n.string("Dev Island entries to trust in Codex", language: language))
                 .accessibilityValue(CodexTrustGuidance.entryNames(descriptor: descriptor).joined(separator: ", "))
 
-            HStack(spacing: 10) {
-                Button {
-                    codexUnavailable = !CodexTrustGuidance.openCodexAndCopyReviewCommand()
-                } label: {
-                    Text(CodexTrustGuidance.actionTitle(language: language))
-                }
-                .buttonStyle(SettingsControlButtonStyle())
-                .accessibilityHint(L10n.format(
-                    "Copies %@ to the clipboard and brings Codex to the front",
-                    language: language,
-                    reviewCommand
-                ))
-
-                if codexUnavailable {
-                    Text(L10n.format(
-                        "Codex is not installed on this Mac. %@ is on the clipboard for when it is.",
-                        language: language,
-                        reviewCommand
-                    ))
-                        .font(.system(size: 11))
-                        .foregroundStyle(Palette.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+            Button {
+                showsAuthorization = true
+            } label: {
+                Text(CodexTrustGuidance.actionTitle(language: language))
             }
+            .buttonStyle(SettingsControlButtonStyle())
+            .accessibilityHint(L10n.string(
+                "Review the exact commands before authorizing Dev Island hooks",
+                language: language
+            ))
         }
         .padding(.top, 2)
+        .sheet(isPresented: $showsAuthorization) {
+            CodexHookAuthorizationSheet(onAuthorized: onAuthorized)
+        }
     }
 }
 
@@ -2144,6 +2129,7 @@ private struct CodexTrustGuidanceRow: View {
 /// entirely from the agent's `LocalAgentDescriptor`.
 private struct LocalAgentServiceRow: View {
     let descriptor: LocalAgentDescriptor
+    let store: TaskStore
     let refreshToken: UUID
     @Binding var connectionsOperation: LocalAgentConnectionsOperationState
 
@@ -2234,7 +2220,10 @@ private struct LocalAgentServiceRow: View {
                             Button(role: .destructive) {
                                 apply(.disable)
                             } label: {
-                                Text(L10n.string("Disable", language: language))
+                                Text(L10n.string(
+                                    descriptor.source == "codex" ? "Disable hooks" : "Disable",
+                                    language: language
+                                ))
                             }
                             .buttonStyle(SettingsControlButtonStyle(isDestructive: true))
                             .disabled(connectionsOperation.isMutating)
@@ -2253,12 +2242,19 @@ private struct LocalAgentServiceRow: View {
                         Button {
                             apply(.enable)
                         } label: {
-                            Text(L10n.string("Enable", language: language))
+                            Text(L10n.string(
+                                descriptor.source == "codex" ? "Enable hooks" : "Enable",
+                                language: language
+                            ))
                         }
                         .buttonStyle(SettingsControlButtonStyle())
                         .disabled(connectionsOperation.isMutating)
                     }
                 }
+            }
+
+            if descriptor.source == "codex" {
+                codexSessionMonitoring
             }
 
             if let lastError {
@@ -2272,14 +2268,16 @@ private struct LocalAgentServiceRow: View {
                !isVendorActivationVerified,
                !isCheckingVendorActivation,
                !connectionsOperation.isMutating {
-                CodexTrustGuidanceRow(descriptor: descriptor)
+                CodexTrustGuidanceRow(
+                    descriptor: descriptor,
+                    onAuthorized: refreshVendorActivationIfNeeded
+                )
             }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
         .onAppear { refreshInstallationState() }
-        // The user comes back from Codex after trusting the entries; re-read
-        // the trust state then instead of asking for another click.
+        // Manual CLI authorization can happen outside this window.
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             if configurationState.installationState == .current,
                descriptor.hookActivationRequirement.reviewCommand != nil,
@@ -2293,6 +2291,34 @@ private struct LocalAgentServiceRow: View {
             activationCheckToken = UUID()
             isCheckingVendorActivation = false
         }
+    }
+
+    private var codexSessionMonitoring: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Toggle(
+                L10n.string("Monitor Codex sessions", language: language),
+                isOn: Binding(
+                    get: { store.codexSessionMonitoringEnabled },
+                    set: { store.setCodexSessionMonitoringEnabled($0) }
+                )
+            )
+                .toggleStyle(.switch)
+                .controlSize(.small)
+                .font(.system(size: 11, weight: .medium))
+            Text(L10n.string(
+                "Read local Codex session logs to show task activity. Data stays on this Mac. Approvals require trusted hooks.",
+                language: language
+            ))
+                .font(.system(size: 10.5))
+                .foregroundStyle(Palette.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(CodexSessionMonitoringPresentation.status(
+                store.codexSessionMonitorStatus, language: language
+            ))
+                .font(.system(size: 10.5))
+                .foregroundStyle(Palette.textSecondary)
+        }
+        .padding(.vertical, 6)
     }
 
     private func apply(_ operation: LocalAgentConfigurationOperation) {
@@ -2349,6 +2375,9 @@ private struct LocalAgentServiceRow: View {
         case .checking:
             return "Checking configuration…"
         case .absent:
+            if descriptor.source == "codex" {
+                return L10n.string("Approval hooks are not configured", language: language)
+            }
             return descriptor.settingsSubtitle
         case .current:
             return installedStatusLine
@@ -2385,11 +2414,17 @@ private struct LocalAgentServiceRow: View {
                 )
             }
             if isVendorActivationVerified {
+                if descriptor.source == "codex" {
+                    return L10n.string("Approval hooks authorized", language: language)
+                }
                 return L10n.format(
                     "Connected — Hook trust verified by %@",
                     language: language,
                     descriptor.displayName
                 )
+            }
+            if descriptor.source == "codex" {
+                return L10n.string("Approval hooks installed — authorization required", language: language)
             }
             return L10n.format(
                 "Configured — review and trust the Dev Island entries in %@ %@",

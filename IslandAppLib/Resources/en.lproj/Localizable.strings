@@ -501,3 +501,38 @@
 /* Global decision shortcuts */
 "Decide from Anywhere" = "Decide from Anywhere";
 "Press ⌃⌥⌘Y to allow or ⌃⌥⌘N to deny the request at the front of the island while any app is active. Questions and plan reviews open the island instead." = "Press ⌃⌥⌘Y to allow or ⌃⌥⌘N to deny the request at the front of the island while any app is active. Questions and plan reviews open the island instead.";
+
+"Task monitoring works independently. To handle approvals in the island, review and authorize the Dev Island hooks." = "Task monitoring works independently. To handle approvals in the island, review and authorize the Dev Island hooks.";
+"Review and authorize hooks" = "Review and authorize hooks";
+"For manual setup, paste the launch command in Terminal. Then enter %@ in Codex CLI and trust only Dev Island entries." = "For manual setup, paste the launch command in Terminal. Then enter %@ in Codex CLI and trust only Dev Island entries.";
+"The signed Codex app could not be found. Install Codex, then try again." = "The signed Codex app could not be found. Install Codex, then try again.";
+"This Codex version needs manual hook review in Codex CLI." = "This Codex version needs manual hook review in Codex CLI.";
+"Dev Island hooks are missing, disabled, or changed. Update the connection, then review again." = "Dev Island hooks are missing, disabled, or changed. Update the connection, then review again.";
+"Hooks or configuration changed during review. Close this review and try again." = "Hooks or configuration changed during review. Close this review and try again.";
+"Authorization could not be verified. Check the connection before retrying." = "Authorization could not be verified. Check the connection before retrying.";
+"Codex could not complete this request. Try again or use manual setup." = "Codex could not complete this request. Try again or use manual setup.";
+"Authorize Dev Island hooks" = "Authorize Dev Island hooks";
+"Allow Codex to run these Dev Island commands for task updates and approval requests on this Mac. Each tool request still follows your Codex approval settings." = "Allow Codex to run these Dev Island commands for task updates and approval requests on this Mac. Each tool request still follows your Codex approval settings.";
+"Reading Dev Island hooks…" = "Reading Dev Island hooks…";
+"Launch command copied" = "Launch command copied";
+"Copy Codex CLI launch command" = "Copy Codex CLI launch command";
+"Review the exact commands before authorizing Dev Island hooks" = "Review the exact commands before authorizing Dev Island hooks";
+"Disable hooks" = "Disable hooks";
+"Enable hooks" = "Enable hooks";
+"Monitor Codex sessions" = "Monitor Codex sessions";
+"Read local Codex session logs to show task activity. Data stays on this Mac. Approvals require trusted hooks." = "Read local Codex session logs to show task activity. Data stays on this Mac. Approvals require trusted hooks.";
+"Approval hooks are not configured" = "Approval hooks are not configured";
+"Approval hooks authorized" = "Approval hooks authorized";
+"Approval hooks installed — authorization required" = "Approval hooks installed — authorization required";
+"Session monitoring is off" = "Session monitoring is off";
+"Waiting for a local Codex session" = "Waiting for a local Codex session";
+"Monitoring local Codex activity" = "Monitoring local Codex activity";
+"Local Codex sessions could not be read" = "Local Codex sessions could not be read";
+"Send a prompt in Codex. The island reads local session activity; hook authorization is only needed for approvals." = "Send a prompt in Codex. The island reads local session activity; hook authorization is only needed for approvals.";
+"Review the Dev Island hooks, then send a prompt in Codex." = "Review the Dev Island hooks, then send a prompt in Codex.";
+"Check session monitoring and approval authorization in Settings › Agents." = "Check session monitoring and approval authorization in Settings › Agents.";
+"For manual setup, use %@ in Codex CLI to trust only Dev Island entries. Otherwise, use Review and authorize hooks below." = "For manual setup, use %@ in Codex CLI to trust only Dev Island entries. Otherwise, use Review and authorize hooks below.";
+
+"Response finished" = "Response finished";
+"Response interrupted" = "Response interrupted";
+"Codex finished this response. Session monitoring is working." = "Codex finished this response. Session monitoring is working.";

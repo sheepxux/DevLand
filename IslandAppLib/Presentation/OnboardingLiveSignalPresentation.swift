@@ -64,6 +64,9 @@ enum OnboardingLiveSignalRecipe: Equatable, Sendable {
     /// Codex has the managed Hook definition but its own trust gate is still
     /// closed: launch Codex, review `/hooks`, then send any prompt.
     case codexTrust(command: String)
+    /// Local session activity does not depend on hook configuration or on
+    /// the approval listener being ready.
+    case codexSessionMonitoring
     /// Cursor is driven from its own UI rather than a terminal.
     case cursorChat
     /// Another connected Agent without a scripted one-liner.
@@ -78,13 +81,16 @@ enum OnboardingLiveSignalRecipe: Equatable, Sendable {
     static func resolve(
         listener: LocalHookServiceStatus,
         states: [String: LocalAgentHookConnectionState],
-        candidateSources: [String]
+        candidateSources: [String],
+        codexSessionMonitoringEnabled: Bool = false
     ) -> Self {
-        guard listener == .listening else { return .listenerStarting }
-
-        if states["claude-code"] == .connected {
+        if listener == .listening, states["claude-code"] == .connected {
             return .command(source: "claude-code", command: claudeCodeCommand)
         }
+        if codexSessionMonitoringEnabled, candidateSources.contains("codex") {
+            return .codexSessionMonitoring
+        }
+        guard listener == .listening else { return .listenerStarting }
         switch states["codex"] {
         case .connected?:
             return .command(source: "codex", command: codexCommand)
@@ -107,16 +113,19 @@ enum OnboardingLiveSignalRecipe: Equatable, Sendable {
     var command: String? {
         switch self {
         case .command(_, let command), .codexTrust(let command): return command
-        case .listenerStarting, .cursorChat, .anySession, .connectAgent: return nil
+        case .listenerStarting, .codexSessionMonitoring, .cursorChat, .anySession, .connectAgent: return nil
         }
     }
 
     /// Sources whose events are allowed to advance the latch.
     static func signalSources(
-        states: [String: LocalAgentHookConnectionState]
+        states: [String: LocalAgentHookConnectionState],
+        codexSessionMonitoringEnabled: Bool = false
     ) -> Set<String> {
-        Set(states.compactMap { source, state in
+        var sources = Set(states.compactMap { source, state in
             state == .connected || state == .configured ? source : nil
         })
+        if codexSessionMonitoringEnabled { sources.insert("codex") }
+        return sources
     }
 }

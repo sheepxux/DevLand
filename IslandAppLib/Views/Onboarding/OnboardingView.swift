@@ -40,6 +40,7 @@ struct OnboardingView: View {
     @State private var connectionOperation = OnboardingConnectionOperationState()
     @State private var liveSignal = OnboardingLiveSignalState.waiting
     @State private var copiedCommandFeedbackID: UUID?
+    @State private var showsCodexAuthorization = false
 
     @AppStorage(TaskNotificationPreferences.attentionRequiredKey)
     private var attentionRequired = true
@@ -109,6 +110,9 @@ struct OnboardingView: View {
         }
         .preferredColorScheme(.dark)
         .onAppear(perform: loadInstalledSources)
+        .sheet(isPresented: $showsCodexAuthorization) {
+            CodexHookAuthorizationSheet(onAuthorized: loadInstalledSources)
+        }
         .onDisappear {
             // Any managed-config write already in progress is allowed to
             // finish atomically, but this departed view no longer owns its
@@ -668,12 +672,16 @@ struct OnboardingView: View {
         OnboardingLiveSignalRecipe.resolve(
             listener: store.localHookServiceStatus,
             states: hasLoadedConnectionStates ? connectionStates : [:],
-            candidateSources: onboardingAgents.map(\.source)
+            candidateSources: onboardingAgents.map(\.source),
+            codexSessionMonitoringEnabled: store.codexSessionMonitoringEnabled
         )
     }
 
     private var liveSignalSources: Set<String> {
-        OnboardingLiveSignalRecipe.signalSources(states: connectionStates)
+        OnboardingLiveSignalRecipe.signalSources(
+            states: connectionStates,
+            codexSessionMonitoringEnabled: store.codexSessionMonitoringEnabled
+        )
     }
 
     /// Derived from the live store on every change; `onChange` fires only
@@ -771,6 +779,9 @@ struct OnboardingView: View {
                 agentDisplayName(for: source)
             )
         case .completed(let source):
+            if source == "codex" {
+                return L10n.string("Codex finished this response. Session monitoring is working.", language: language)
+            }
             return L10n.format(
                 "%@ finished. That is the whole loop.",
                 language: language,
@@ -795,28 +806,36 @@ struct OnboardingView: View {
                     )
                     liveSignalCommandRow(command)
 
-                case .codexTrust(let command):
-                    liveSignalInstruction("Run this in a new terminal window.")
-                    liveSignalCommandRow(command)
+                case .codexSessionMonitoring:
                     liveSignalInstruction(
-                        L10n.format(
-                            "Then type %@, trust only the Dev Island entries, and send any prompt.",
-                            language: language,
-                            "/hooks"
-                        ),
-                        isLocalized: true
+                        "Send a prompt in Codex. The island reads local session activity; hook authorization is only needed for approvals."
                     )
+                    quietLiveSignalLine(CodexSessionMonitoringPresentation.status(
+                        store.codexSessionMonitorStatus, language: language
+                    ))
+                    if connectionStates["codex"] == .configured {
+                        Button {
+                            showsCodexAuthorization = true
+                        } label: {
+                            Text(CodexTrustGuidance.actionTitle(language: language))
+                                .font(.system(size: 9, weight: .semibold))
+                        }
+                        .buttonStyle(AgentConnectButtonStyle())
+                        .padding(.leading, 12)
+                    }
+
+                case .codexTrust:
+                    liveSignalInstruction("Review the Dev Island hooks, then send a prompt in Codex.")
                     Button {
-                        _ = CodexTrustGuidance.openCodexAndCopyReviewCommand()
+                        showsCodexAuthorization = true
                     } label: {
                         Text(CodexTrustGuidance.actionTitle(language: language))
                             .font(.system(size: 9, weight: .semibold))
                     }
                     .buttonStyle(AgentConnectButtonStyle())
-                    .accessibilityHint(L10n.format(
-                        "Copies %@ to the clipboard and brings Codex to the front",
-                        language: language,
-                        "/hooks"
+                    .accessibilityHint(L10n.string(
+                        "Review the exact commands before authorizing Dev Island hooks",
+                        language: language
                     ))
                     .padding(.leading, 12)
 

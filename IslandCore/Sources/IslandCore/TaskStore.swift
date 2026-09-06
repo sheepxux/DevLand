@@ -147,6 +147,9 @@ public final class TaskStore {
     /// judged against the vendor's own on-disk activity. Refreshed on demand
     /// by the surfaces that show it; never polled.
     public private(set) var reportingHealth: LocalAgentReportingSnapshot?
+    /// Passive local session discovery remains useful before Hooks are trusted.
+    public private(set) var codexSessionMonitoringEnabled = true
+    public private(set) var codexSessionMonitorStatus: CodexSessionMonitorStatus = .stopped
     /// Arrival time of the last Hook event per source. Memory only.
     private var lastLocalHookEventAt: [String: Date] = [:]
 
@@ -209,6 +212,13 @@ public final class TaskStore {
     private var bootstrapTask: Task<Void, Never>?
     private var localHookStartTask: Task<Void, Never>?
     private var localConnectors: [String: LocalAgentConnector] = [:]
+    private let permitsSessionMonitoring: Bool
+    private var codexSessionMonitorTask: Task<Void, Never>?
+    private var codexMonitorGeneration: UInt64 = 0
+    private var codexHookSnapshot: [AgentTask] = []
+    private var codexSessionObservations: [CodexSessionObservation] = []
+    private var codexEndedSessions: [String: Date] = [:]
+    private static let codexMonitoringPreference = "island.codex.sessionMonitoring"
     private var actionContinuations: [
         UUID: CheckedContinuation<AgentActionResponse?, Never>
     ] = [:]
@@ -243,7 +253,11 @@ public final class TaskStore {
         self.manusDependencies = manusDependencies
         self.openDestination = openDestination
         self.restartLocalHookServer = restartLocalHookServer
+        self.permitsSessionMonitoring = bootstrap
         if bootstrap {
+            codexSessionMonitoringEnabled = UserDefaults.standard.object(
+                forKey: Self.codexMonitoringPreference
+            ) as? Bool ?? true
             localHookServiceStatus = .starting
             bootstrapTask = Task { @MainActor [weak self] in
                 guard let self else { return }
@@ -340,6 +354,7 @@ public final class TaskStore {
             sleepObserver != nil ||
             wakeObserver != nil ||
             !localConnectors.isEmpty
+            || codexSessionMonitorTask != nil
     }
     #endif
 
@@ -347,11 +362,15 @@ public final class TaskStore {
 
     /// Every `tasks` write goes through here so status transitions are
     /// detected exactly once, in one place (contract v1.4.0).
-    private func setTasks(_ newTasks: [AgentTask]) {
+    private func setTasks(
+        _ newTasks: [AgentTask],
+        suppressingTransitionsFor identities: Set<TaskIdentity> = []
+    ) {
         let transitions = TaskTransition.diff(old: tasks, new: newTasks)
         tasks = newTasks
         guard let onTaskTransition else { return }
         for transition in transitions {
+            guard !identities.contains(transition.task.identity) else { continue }
             onTaskTransition(transition)
         }
     }
@@ -659,6 +678,14 @@ public final class TaskStore {
         let server = localHookServer
         let serverStart = localHookStartTask
         let bootstrap = bootstrapTask
+        let sessionMonitor = codexSessionMonitorTask
+        codexMonitorGeneration &+= 1
+        codexSessionMonitorTask = nil
+        sessionMonitor?.cancel()
+        codexSessionMonitorStatus = .stopped
+        codexSessionObservations = []
+        codexHookSnapshot = []
+        codexEndedSessions = [:]
         localHookServer = nil
         localHookStartTask = nil
         bootstrapTask = nil
@@ -708,6 +735,7 @@ public final class TaskStore {
             // Let that hop settle, then stop the concrete server it armed.
             await serverStart?.value
             await server?.stop()
+            await sessionMonitor?.value
             // Bootstrap may be suspended in storage or provider I/O. Terminal
             // guards after each await prevent it from publishing state or
             // creating resources, while this join proves it has actually left.
@@ -816,7 +844,7 @@ public final class TaskStore {
         probe: LocalAgentActivityProbe = LocalAgentActivityProbe()
     ) async -> LocalAgentReportingSnapshot {
         let lastEvents = lastLocalHookEventAt
-        let liveSources = Set(tasks.map(\.source))
+        let liveSources = liveHookReportingSources
         let snapshot = await Task.detached(priority: .utility) {
             let hooks = LocalAgentHookDiagnostics.snapshot()
             var activity: [String: LocalAgentActivityProbe.Activity] = [:]
@@ -834,6 +862,13 @@ public final class TaskStore {
         guard !shutdownRequested else { return snapshot }
         reportingHealth = snapshot
         return snapshot
+    }
+
+    /// Passive Codex visibility is not proof that the Hook channel reports.
+    internal var liveHookReportingSources: Set<String> {
+        var sources = Set(tasks.filter { $0.source != "codex" }.map(\.source))
+        if !codexHookSnapshot.isEmpty { sources.insert("codex") }
+        return sources
     }
 
     /// Fold one Allow into the visible summary without a storage round trip.
@@ -962,6 +997,17 @@ public final class TaskStore {
     /// Replace all tasks of one local source with a fresh snapshot from its
     /// connector (event-sourced, so the connector state is authoritative).
     internal func applyLocalSnapshot(source: String, _ snapshot: [AgentTask]) async {
+        if source == "codex" {
+            let previous = Dictionary(codexHookSnapshot.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+            codexHookSnapshot = StateReconciler.normalizedSnapshot(snapshot, source: source).map { incoming in
+                // Another session's Hook can carry the connector's old copy
+                // of a row whose approval was already resolved in the UI.
+                if let newer = previous[incoming.id], newer.updatedAt > incoming.updatedAt { return newer }
+                return incoming
+            }
+            await publishCodexSessions()
+            return
+        }
         let normalized = StateReconciler.normalizedSnapshot(snapshot, source: source)
         setTasks(tasks.filter { $0.source != source } + normalized)
         guard let store = sqliteStore else { return }
@@ -969,6 +1015,117 @@ public final class TaskStore {
             try await store.insertOrReplace(tasks: normalized)
         } catch {
             IslandLogger.storage.error("Couldn't persist local Agent snapshot")
+        }
+    }
+
+    /// Changes only passive monitoring. Hooks and pending decisions have a
+    /// separate lifecycle and remain available when monitoring is disabled.
+    public func setCodexSessionMonitoringEnabled(_ enabled: Bool) {
+        guard !shutdownRequested, enabled != codexSessionMonitoringEnabled else { return }
+        codexSessionMonitoringEnabled = enabled
+        if permitsSessionMonitoring {
+            UserDefaults.standard.set(enabled, forKey: Self.codexMonitoringPreference)
+        }
+        codexMonitorGeneration &+= 1
+        let generation = codexMonitorGeneration
+        let preceding = codexSessionMonitorTask
+        preceding?.cancel()
+        codexSessionObservations = []
+        codexSessionMonitorStatus = .stopped
+        // Remove passive cards synchronously so toggling off cannot leave a
+        // card on screen until a later filesystem poll or Hook arrives.
+        setTasks(tasks.filter { $0.source != "codex" } + mergedCodexSessions())
+        guard permitsSessionMonitoring else { return }
+        scheduleCodexSessionMonitor(after: preceding, generation: generation)
+    }
+
+    private func startCodexSessionMonitoring() {
+        guard permitsSessionMonitoring, codexSessionMonitoringEnabled,
+              !shutdownRequested, codexSessionMonitorTask == nil else { return }
+        codexMonitorGeneration &+= 1
+        scheduleCodexSessionMonitor(after: nil, generation: codexMonitorGeneration)
+    }
+
+    /// One owner joins the previous generation before polling. Cancellation
+    /// and generation checks fence every publication across actor hops.
+    private func scheduleCodexSessionMonitor(
+        after preceding: Task<Void, Never>?,
+        generation: UInt64
+    ) {
+        codexSessionMonitorTask = Task { @MainActor [weak self] in
+            await preceding?.value
+            guard !Task.isCancelled,
+                  self?.codexMonitorGeneration == generation,
+                  self?.codexSessionMonitoringEnabled == true,
+                  self?.shutdownRequested == false else { return }
+            let monitor = CodexSessionLogMonitor()
+            let monitoringStartedAt = Date.now
+            var initial = true
+            while !Task.isCancelled {
+                let observations = await monitor.poll()
+                let status = await monitor.status
+                guard !Task.isCancelled,
+                      let owner = self,
+                      owner.codexMonitorGeneration == generation,
+                      !owner.shutdownRequested else { return }
+                owner.codexSessionMonitorStatus = status
+                await owner.applyCodexSessionObservations(
+                    observations, isInitialSnapshot: initial,
+                    restoringBefore: monitoringStartedAt
+                )
+                initial = false
+                let active = observations.contains { $0.task.status == .running }
+                do {
+                    try await Task.sleep(for: .seconds(active ? 1 : 3))
+                } catch { return }
+            }
+        }
+    }
+
+    internal func applyCodexSessionObservations(
+        _ observations: [CodexSessionObservation],
+        isInitialSnapshot: Bool = false,
+        restoringBefore: Date? = nil
+    ) async {
+        guard !shutdownRequested, codexSessionMonitoringEnabled else { return }
+        let changed = observations != codexSessionObservations
+        codexSessionObservations = observations
+        // A pending decision may have hidden a terminal observation in the
+        // previous poll. After cancellation/native fallback, even identical
+        // log bytes must be reconciled against the now-unblocked projection.
+        guard changed || mergedCodexSessions() != tasks.filter({ $0.source == "codex" }) else { return }
+        // Bounded discovery can restore an old conversation on a later poll.
+        // Silence by source time as well as first snapshot, so scan budgets
+        // never turn historical responses into new completion notifications.
+        let silent = Set(observations.filter { observation in
+            isInitialSnapshot || restoringBefore.map { observation.task.updatedAt < $0 } == true
+        }.map { $0.task.identity })
+        await publishCodexSessions(suppressingTransitionsFor: silent)
+    }
+
+    private func mergedCodexSessions() -> [AgentTask] {
+        let pending = Set(pendingActionRequests.map(\.taskIdentity))
+        return CodexSessionReconciler.reconcile(
+            hooks: codexHookSnapshot,
+            observations: codexSessionObservations,
+            pendingTasks: tasks.filter { pending.contains($0.identity) },
+            endedSessions: codexEndedSessions
+        )
+    }
+
+    private func publishCodexSessions(
+        suppressingTransitionsFor identities: Set<TaskIdentity> = []
+    ) async {
+        let snapshot = mergedCodexSessions()
+        setTasks(
+            tasks.filter { $0.source != "codex" } + snapshot,
+            suppressingTransitionsFor: identities
+        )
+        guard let store = sqliteStore else { return }
+        do {
+            try await store.insertOrReplace(tasks: snapshot)
+        } catch {
+            IslandLogger.storage.error("Couldn't persist Codex session snapshot")
         }
     }
 
@@ -1110,6 +1267,7 @@ public final class TaskStore {
             updated.updatedAt = .now
             return updated
         })
+        rememberCodexDecisionState(for: request)
     }
 
     private func validatedSubmission(
@@ -1162,6 +1320,19 @@ public final class TaskStore {
             updated.updatedAt = .now
             return updated
         })
+        rememberCodexDecisionState(for: request)
+    }
+
+    /// Connector snapshots predate the UI decision. Keep that transition so a
+    /// later log refresh cannot resurrect the already-resolved Waiting state.
+    private func rememberCodexDecisionState(for request: AgentActionRequest) {
+        guard request.source == "codex",
+              let updated = tasks.first(where: { $0.identity == request.taskIdentity }) else { return }
+        if let index = codexHookSnapshot.firstIndex(where: { $0.id == updated.id }) {
+            codexHookSnapshot[index] = updated
+        } else {
+            codexHookSnapshot.append(updated)
+        }
     }
 
     internal func cancelActionRequests(for identity: TaskIdentity) {
@@ -1206,6 +1377,7 @@ public final class TaskStore {
         // Local agent pipeline runs regardless of Manus configuration.
         guard !shutdownRequested else { return }
         startLocalHookPipeline()
+        startCodexSessionMonitoring()
 
         // Sleep/wake observers guard the local pipeline too, so they must
         // register even when no Manus key is configured (previously they
@@ -1306,6 +1478,15 @@ public final class TaskStore {
     ) async {
         guard !shutdownRequested else { return }
         lastLocalHookEventAt[source] = .now
+        if source == "codex", case .sessionEnd = event.action {
+            let now = Date.now
+            codexEndedSessions = codexEndedSessions.filter { now.timeIntervalSince($0.value) < 7_200 }
+            codexEndedSessions[event.sessionId] = now
+            if codexEndedSessions.count > 256,
+               let oldest = codexEndedSessions.min(by: { $0.value < $1.value })?.key {
+                codexEndedSessions.removeValue(forKey: oldest)
+            }
+        }
         // Look up through the stored map (not a closure capture) so the
         // store's property is the single owner and a future pipeline restart
         // can swap connectors safely.

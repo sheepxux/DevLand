@@ -11,23 +11,42 @@ final class CodexTrustGuidanceTests: XCTestCase {
         XCTAssertNil(CodexTrustGuidance.reviewCommand(descriptor: .claudeCode), "only Codex has a trust gate")
     }
 
-    func testCopyIsLocalizedAndNamesTheReviewCommand() {
-        XCTAssertEqual(
-            CodexTrustGuidance.summary(language: .english),
-            "Codex trusts a hook once. Open Codex, run /hooks, and trust these 5 Dev Island entries:"
-        )
-        XCTAssertEqual(
-            CodexTrustGuidance.summary(language: .simplifiedChinese),
-            "Codex 只需信任一次 Hook。打开 Codex，输入 /hooks，信任下面这 5 条 Dev Island 条目："
-        )
-        XCTAssertEqual(CodexTrustGuidance.actionTitle(language: .english), "Open Codex and copy /hooks")
-        XCTAssertEqual(CodexTrustGuidance.actionTitle(language: .simplifiedChinese), "打开 Codex 并复制 /hooks")
+    func testManualInstructionsUseCLINotDesktopChatInBothLanguages() {
+        for language in [DevIslandLanguage.english, .simplifiedChinese] {
+            let manual = CodexTrustGuidance.manualInstructions(language: language)
+            XCTAssertTrue(manual.contains("Codex CLI"))
+            XCTAssertTrue(manual.contains("/hooks"))
+            XCTAssertFalse(CodexTrustGuidance.actionTitle(language: language).contains("/hooks"))
+        }
     }
 
-    func testActionFillsThePasteboardEvenWhenCodexIsAbsent() {
+    func testFallbackCopiesOnlyAShellQuotedExecutableAndDoesNotLaunchDesktop() {
         let pasteboard = NSPasteboard.withUniqueName()
         defer { pasteboard.releaseGlobally() }
-        _ = CodexTrustGuidance.openCodexAndCopyReviewCommand(pasteboard: pasteboard)
-        XCTAssertEqual(pasteboard.string(forType: .string), "/hooks")
+        let executable = URL(fileURLWithPath: "/Applications/Codex's App.app/Contents/Resources/codex")
+        XCTAssertTrue(CodexTrustGuidance.copyCLILaunchCommand(pasteboard: pasteboard, executableURL: executable))
+        XCTAssertEqual(pasteboard.string(forType: .string), "'/Applications/Codex'\\''s App.app/Contents/Resources/codex'")
+        XCTAssertFalse(pasteboard.string(forType: .string)?.contains("/hooks") ?? true)
+    }
+
+    func testMissingVerifiedCLILeavesClipboardUntouched() {
+        let pasteboard = NSPasteboard.withUniqueName()
+        defer { pasteboard.releaseGlobally() }
+        pasteboard.setString("user clipboard", forType: .string)
+        XCTAssertFalse(CodexTrustGuidance.copyCLILaunchCommand(pasteboard: pasteboard, executableURL: nil))
+        XCTAssertEqual(pasteboard.string(forType: .string), "user clipboard")
+        XCTAssertNil(CodexTrustGuidance.launcherCommand(executableURL: URL(string: "https://example.com/codex")))
+        XCTAssertNil(CodexTrustGuidance.launcherCommand(executableURL: URL(fileURLWithPath: "/tmp/codex\ncommand")))
+    }
+
+    func testMonitoringAndApprovalGuidanceRemainDistinctInBothLanguages() {
+        XCTAssertTrue(CodexTrustGuidance.summary(language: .english).contains("independently"))
+        XCTAssertTrue(CodexTrustGuidance.summary(language: .simplifiedChinese).contains("独立"))
+        for status: CodexSessionMonitorStatus in [.stopped, .notFound, .available, .unavailable] {
+            let english = CodexSessionMonitoringPresentation.status(status, language: .english)
+            let chinese = CodexSessionMonitoringPresentation.status(status, language: .simplifiedChinese)
+            XCTAssertNotEqual(english, chinese)
+            XCTAssertFalse(english.contains("trust"))
+        }
     }
 }

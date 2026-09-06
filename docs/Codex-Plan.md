@@ -4,6 +4,10 @@
 >
 > 本文取代 2026-08-05 的 v0.2.2 旧快照。旧文档中的通知、跳回、审批、历史、
 > Sparkle、License、CI、状态音和新连接器等缺口已经完成，不再作为当前待办。
+>
+> Codex 接入设计更新于 2026-09-06，见文末「只读任务监测与真实审批分离」及
+> [接入记录](codex-integration-field-notes.md)。此前“打开 Desktop 并发送 `/hooks`”
+> 的引导已被替换；旧章节中的版本、测试数字和验收记录只对应当时的源码快照。
 
 ## 一、长期目标
 
@@ -2437,9 +2441,9 @@ Dependabot security updates 六项控制；未经明确授权未修改远端设�
 
 ## 2026-09-05 一次连接、持续在线：托管启动器 + 心跳 + 一步信任
 
-- [x] 根因：用户机器上 Codex 受信任的是竞品 Vibe Island 留下的死条目，Dev Island 的 5 条内联 curl
-  Hook 未信任，Codex 静默跳过，岛空白。Vibe Island 的"固定启动器行"值得学，其自清理重写全部
-  Agent 配置的做法不学。
+- [x] 当时观察到 Dev Island 的 5 条内联 curl Hook 未信任，Codex 跳过这些定义，岛无法通过
+  Hook 收到事件。这只说明当时 Dev Island 通道未激活；不能据此推断 Vibe Island 的内部
+  授权实现或它是否完全依赖 Hooks。公开发布说明只证明其对外声明的行为。
 - [x] `72a797d` 启动器构件：`LocalHooksInstaller.launcherScript()` 从注册表渲染无模板变量的静态
   `sh`；`LocalHookLauncher` 以 `0700`/单链接/字节精确安装到 `island-app/bin/dev-island-hook`，
   stale 原地修复、unsafe 只报告；生产监听器在授权轮换后非致命自愈；两个 QA 隔离门禁禁止它出现。
@@ -2449,9 +2453,47 @@ Dependabot security updates 六项控制；未经明确授权未修改远端设�
 - [x] `904f620` 心跳：`LocalAgentActivityProbe` 只读 Codex/Claude Code 会话文件的类型与 mtime，
   `TaskStore` 记录每 source 最后事件时间，按需（展开/菜单/Settings）推导 not-reporting；空闲岛、
   状态菜单与 Settings 提示"X 正在运行但没有向岛汇报"并给出下一步；契约 v6.91.0。
-- [x] 一步信任：Settings Codex 卡与 Welcome 第四步的"打开 Codex 并复制 /hooks"，条目名从注册表派生，
-  App 回到前台时自动重探信任。
+- [x] 当时实现过 Settings 与 Welcome 的“打开 Codex 并复制 /hooks”入口；该 Desktop 引导不可靠，
+  已由下述岛内精确命令审阅/授权流程替换。`/hooks` 只保留为不支持版本的 Codex CLI 手动回退。
 - [x] 当前源码 **940 tests / 0 failures**；Localization、Legal/Data Flow、Performance、Release
   Foundation、Hermetic listener 门禁 PASS；Security 门禁只剩三份 0.3.0 回执的已知失败。
-- [ ] 迁移语义：升级后旧 curl 行显示 update-required，需要在 Settings 更新一次；Codex 需 `/hooks`
-  重新信任一次。真实 Codex 会话验证 not-reporting → 信任 → reporting 的闭环仍待实机。
+- [ ] 迁移语义：升级后旧 curl 行显示 update-required，需要更新为当前托管定义并重新审阅信任。
+  当前候选的真实 Codex Allow/Deny 闭环仍待实机，不能由旧回执或自动化测试替代。
+
+## 2026-09-06 只读任务监测与真实审批分离
+
+本节记录当前开发工作树的实现，不表示已发布或已通过真实审批验收。Codex 的基础任务可见性
+独立于 Hook 信任，审批动作仍只来自 Codex 真实同步请求。
+
+- [x] 默认启用只读 JSONL 监测，从本地 Codex sessions 目录发现任务。近期目录快速刷新，
+  有界遍历更早的日期目录，以发现“旧任务今天重新打开”仍使用原日期 rollout 的情况。
+  不启动 Codex 任务，不修改其 sandbox 或 approval policy；关闭监测不关闭审批 Hooks。
+- [x] 读取、目录遍历、文件数和单行均设上限；大文件只读元数据头与近期尾部，跳过区间时清除
+  旧 turn 顺序状态。部分行等待换行，畸形或超大行丢弃，使用 descriptor/no-follow 读取。
+- [x] `session_meta` 本身不制造 Running；排除 subagent、memory、chronicle 等辅助会话。
+  识别真实用户消息、task/item 生命周期、回复结束与中断；旧 turn 的终结事件不能覆盖新 turn。
+  工具单次失败不等于整轮失败，回复结束与整个任务完成在文案中区分，中断不显示成功完成。
+- [x] 状态时间来自记录的实际事件时间，不用读取时间或 mtime 复活历史。未来时间在状态变更前
+  被拒绝，避免污染后续排序；初次发现不重放完成通知。已停滞 Running 与终结记录按时效移除。
+- [x] 只保留有界任务投影：标识、合法绝对工作目录、状态、阶段和时间，以及最多 120 字符/
+  512 UTF-8 字节的首条人工消息标题或项目名。该标题可进入现有本地历史；完整 prompt、
+  transcript、reasoning 和工具输出不作为任务历史保存或上传。
+- [x] 日志不推断待审批，也不生成 Allow/Deny。日志与 Hook 以同一会话合并；真实待决请求覆盖
+  只读状态，点击决定后的状态不能被旧 Hook snapshot 恢复成等待，取消/重启使用代际保护。
+- [x] 岛内提供事件及精确命令的审阅，然后由用户点击授权。通过已验证 OpenAI 签名的本地
+  Codex App Server 调用 `hooks/list`、`config/read`，重新校验当前命令/hash/config version，
+  再以官方 `config/batchWrite` 和 `expectedVersion` 只更新对应 `hooks.state`；写后重新验证。
+  自动检查不等于用户授权，写入成功响应不等于精确 Hook 已被 Codex 接受。
+- [x] 授权写入目前只支持已验证的 `codex-cli 0.153.4`。其他版本继续提供被动监测，授权回退到
+  **Codex CLI** 的 `/hooks`，完成后在岛内重新检查；普通 Desktop 对话中的 `/hooks` 不作为指引。
+- [x] 借鉴边界明确：Vibe Island v0.7.0 / v1.0.33 公开发布说明分别声明 JSONL 监测与一键授权；
+  这些说明不代表取得产品源码，也不能证明其底层如何写信任。当前实现依据 Codex 的本地结构
+  与已验证官方协议独立完成。来源与运行边界见 [接入记录](codex-integration-field-notes.md)。
+- [ ] 重新打包当前候选后，验证 Hooks 未信任时新任务和旧任务重开仍能显示，检查运行、回复结束、
+  中断、关闭监测及重启恢复的真实表现。
+- [ ] 在支持版本上实际完成岛内精确命令审阅 → 授权 → 重新验证；不把模拟 transport 测试算作
+  对用户真实配置的写入验收，也不宣称已自动替用户授予信任。
+- [ ] 为当前打包候选完成真实 **Allow** 和 **Deny**：分别核对 Codex 实际继续/拒绝执行，补齐
+  与候选版本和构建绑定的回执及截图，并验证超时/监听器失败回到原生审批。旧版本回执不抵扣。
+- [ ] 主 agent 完成当前源码的统一测试、门禁、构建与上述验收后，再更新对应证据；本节不修改
+  历史测试数字，不创建提交，也不声称已有新的通过回执。

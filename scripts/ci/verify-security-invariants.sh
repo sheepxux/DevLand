@@ -4127,6 +4127,46 @@ rg -q 'testVerifiedVendorActivationPromotesOnlyItsConfiguredSource' \
   "$LOCAL_HOOK_DIAGNOSTIC_TESTS" \
   || fail "Codex trust promotion regression is missing"
 
+# Passive Codex visibility and explicitly reviewed trust are separate channels.
+CODEX_SESSION_DIR="IslandCore/Sources/IslandCore/Connectors/Codex"
+CODEX_AUTHORIZATION="$CODEX_SESSION_DIR/CodexHookAuthorization.swift"
+CODEX_AUTHORIZATION_TESTS="IslandCoreTests/Sources/IslandCoreTests/CodexHookAuthorizationTests.swift"
+for invariant in \
+  'fresh.entries == review.entries' \
+  'fresh.configVersion == review.configVersion' \
+  '"keyPath": "hooks.state"' \
+  '"expectedVersion": fresh.configVersion' \
+  '"mergeStrategy": "upsert"' \
+  'current.trustStatus == "trusted"' \
+  'guard monitoredHome == installedHome else { return nil }' \
+  'CodexHookTrustProbe.verifiedCodexExecutable()'; do
+  rg -Fq "$invariant" "$CODEX_AUTHORIZATION" \
+    || fail "Reviewed Codex authorization boundary missing: $invariant"
+done
+for regression in \
+  'testReviewNeverWritesAndOnlyIncludesExactDevIslandDefinitions' \
+  'testChangedHashCommandOrConfigurationRequiresAnotherReviewWithoutWriting' \
+  'testVendorKeysWithDotsQuotesAndBackslashesRemainOpaqueObjectKeys' \
+  'testWriteAcknowledgementWithoutTrustedReadbackDoesNotClaimSuccess' \
+  'testUnsupportedVersionAndForeignConfigLayerNeverWrite'; do
+  rg -Fq "$regression" "$CODEX_AUTHORIZATION_TESTS" \
+    || fail "Reviewed Codex authorization regression missing: $regression"
+done
+if rg -n 'CodexHookAuthorization|config/batchWrite|URLSession|IslandLogger|os_log|NSLog|print\(' \
+  "$CODEX_SESSION_DIR/CodexSessionLogMonitor.swift" \
+  "$CODEX_SESSION_DIR/CodexSessionLogParser.swift"; then
+  fail "Passive Codex monitoring must not authorize, network or log session records"
+fi
+for regression in \
+  'testPendingApprovalWinsEvenOverLaterTerminalLog' \
+  'testDelayedHistoricalDiscoveryIsQuietButNewResponseNotifies' \
+  'testCancelledApprovalReleasesCachedTerminalObservationOnNextPoll' \
+  'testPassiveVisibilityDoesNotClaimHooksAreReporting' \
+  'testShutdownRejectsLatePassiveSnapshots'; do
+  rg -Fq "$regression" IslandCoreTests/Sources/IslandCoreTests/CodexSessionReconcilerTests.swift \
+    || fail "Independent Codex monitoring regression missing: $regression"
+done
+
 for file in \
   "$LOCAL_LIVE_READINESS" \
   "$BOUNDED_CHILD_PROCESS" \

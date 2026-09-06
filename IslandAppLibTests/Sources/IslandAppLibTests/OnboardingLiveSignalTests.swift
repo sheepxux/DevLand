@@ -108,6 +108,24 @@ final class OnboardingLiveSignalTests: XCTestCase {
         }
     }
 
+    func testCodexMonitoringCanShowFirstSignalWithoutHooksOrListener() {
+        for state: LocalAgentHookConnectionState in [.disconnected, .configured, .updateRequired] {
+            XCTAssertEqual(OnboardingLiveSignalRecipe.resolve(
+                listener: .unavailable,
+                states: ["codex": state],
+                candidateSources: ["codex"],
+                codexSessionMonitoringEnabled: true
+            ), .codexSessionMonitoring)
+        }
+        let sources = OnboardingLiveSignalRecipe.signalSources(
+            states: ["codex": .disconnected], codexSessionMonitoringEnabled: true
+        )
+        XCTAssertEqual(sources, ["codex"])
+        XCTAssertEqual(OnboardingLiveSignalState.waiting.advanced(
+            with: [task("codex", "monitored", .running)], sources: sources
+        ), .seen(source: "codex"))
+    }
+
     func testRecipePrefersClaudeThenCodexThenCursorThenAnyOther() {
         let sources = ["claude-code", "codex", "cursor", "gemini-cli"]
 

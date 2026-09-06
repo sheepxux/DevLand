@@ -1,9 +1,38 @@
 # IslandCore Interface Contract
 
-> 最后更新: 2026-09-05 | 版本: v6.91.0
+> 最后更新: 2026-09-06 | 版本: v6.92.0
 > 变更流程: 改 TaskStore 公开 API 前更新此文档,commit 用 `[S][contract]` tag。
 
 ---
+
+## Codex 独立会话监控与显式授权（v6.92.0）
+
+本节依据用户要求重新设计 Codex 接入，取代下方 v6.91 的“打开桌面版并粘贴 `/hooks`”引导。
+`/hooks` 是 Codex CLI 管理入口，不能作为桌面聊天指令发送。
+
+- `TaskStore.codexSessionMonitoringEnabled`、`codexSessionMonitorStatus` 与
+  `setCodexSessionMonitoringEnabled(_:)` 独立控制只读会话监控。普通启动默认启用；预览、
+  单元测试 fixture、性能 QA 与 production-hermetic 启动保持 inert，不读真实会话文件。
+- 新 `CodexSessionLogMonitor` 只读 `sessions/YYYY/MM/DD/rollout-*.jsonl` 的近期活动，包括旧会话续聊；发现、候选数、
+  读入字节、单行、内存与状态保留均有界。跳过链接、非普通文件、子代理与供应商后台会话，
+  按源事件时间而非扫描时间更新任务，允许取消，退出时必须结束监控任务。最多 64 文件 / 2 MiB
+  内容每轮；每 10 秒有界扫描最多 8,192 目录项，平时只查最近三日与已追踪文件；超限报告降级。
+- 只提取会话 ID、轮次 ID、工作目录、受限标题和生命周期状态；不保存/记录原始对话或工具输出，
+  不读取认证文件，不调用网络或续跑用户任务。新监控是独立的数据源，原有元数据健康探针
+  `LocalAgentActivityProbe` 继续保持不读文件内容。
+- 会话元数据本身不代表运行；本轮开始/活动、结束、中断分别生成相应观察。旧轮次结束不得覆盖
+  新轮次运行；未知格式不推测状态。日志不创建审批请求、不决定 Allow/Deny，也不证明 hooks 已信任。
+- hooks 与日志用 source + session ID 合并成同一张卡；真实未决审批优先。历史装载（含延迟发现）不触发
+  完成通知，重复扫描不刷新时间或重复通知。关闭监控只撤掉观察数据，保留真实 hook 会话与审批。
+- Codex 授权必须先展示当前 Dev Island 精确 hook 定义，由用户在 App 内明确确认；仅使用
+  OpenAI 签名 CLI 的 `hooks/list` 提供的 key/hash，写入前复验定义未变，再经 Codex 配置 API
+  更新这些条目的 `trusted_hash` 并复查。不得自动授权、伪造 hash、授予其他 hooks 信任、改变
+  Codex 的 sandbox/approval 模式或接管会话。API 不兼容、定义变化与验证失败必须明确失败，
+  可提供 CLI 人工审阅作为回退。此用户确认路径取代 v6.91 的“永不更改信任”产品限制；只读
+  `CodexHookTrustProbe` 本身仍不得写配置。
+- `CodexHookAuthorization.review()` 返回不可变 `CodexHookAuthorizationReview`；用户确认后
+  `authorize(_:)` 校验 5 分钟有效期、配置版本和精确定义，再写入与复查。当前支持经核对的
+  `codex-cli 0.153.4`，其他版本明确回退。`verifiedExecutableURL()` 只复用签名校验路径发现。
 
 ## Codex 一步信任引导（v6.91.0）
 

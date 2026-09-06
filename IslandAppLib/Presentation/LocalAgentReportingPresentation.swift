@@ -40,12 +40,10 @@ enum LocalAgentReportingPresentation {
         for agent: LocalAgentReportingHealth,
         language: DevIslandLanguage
     ) -> String {
-        if let reviewCommand = LocalAgentRegistry.descriptor(for: agent.source)?.hookActivationRequirement.reviewCommand {
-            return L10n.format(
-                "Open %@ and run %@ to trust the Dev Island hooks.",
-                language: language,
-                agent.displayName,
-                reviewCommand
+        if agent.source == "codex" {
+            return L10n.string(
+                "Check session monitoring and approval authorization in Settings › Agents.",
+                language: language
             )
         }
         return L10n.string("Update its hook in Settings › Agents.", language: language)
