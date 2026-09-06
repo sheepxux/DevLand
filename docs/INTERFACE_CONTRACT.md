@@ -1,9 +1,28 @@
 # IslandCore Interface Contract
 
-> 最后更新: 2026-09-05 | 版本: v6.90.0
+> 最后更新: 2026-09-05 | 版本: v6.91.0
 > 变更流程: 改 TaskStore 公开 API 前更新此文档,commit 用 `[S][contract]` tag。
 
 ---
+
+## 本地 Agent Hook 心跳（v6.91.0）
+
+- `LocalAgentActivityProbe` 只对已知供应商（codex → `~/.codex/sessions` 与 `archived_sessions`
+  下的 `rollout-*.jsonl`；claude-code → `~/.claude/projects` 下的 `*.jsonl`）做元数据枚举：
+  最多 8,192 个目录项，只读文件类型与修改时间，树内符号链接一律跳过，符号链接根只解析一次；
+  不得打开、读取或复制任何会话文件。未知供应商返回 `unsupported`。
+- `TaskStore` 在 `ingestLocalAgentEvent` 入口按 source 记录最后一次 Hook 事件到达时间（仅内存）。
+  `refreshReportingHealth(now:probe:)` 在后台任务里读取 Hook 诊断与活动探针，只把
+  `LocalAgentReportingSnapshot` 这种低基数结果发布到 MainActor；只在面板展开、状态菜单打开与
+  Settings › Agents 出现时按需刷新，不得引入定时器或轮询。
+- `LocalAgentReportingSnapshot.derive` 是纯函数：只评估 connected/configured 的 Agent；活动在
+  120 秒窗口内且既无窗口内 Hook 事件也无该 source 的在岛会话 → `not-reporting`；有事件或有在岛
+  会话 → `reporting`；活动过期或不存在 → `idle`；不支持 → `unknown`。不新增
+  `LocalAgentHookConnectionState` 枚举值。
+- 展示只允许 Agent 显示名与固定文案（Codex 指向其 `reviewCommand`，其余指向 Settings › Agents），
+  出现在空闲岛、状态菜单一行与 Settings › Agents 提示卡；不得包含路径、会话 ID 或文件名。
+  CLI `local-hook-status` 追加 `[CLI] activity <source>=recent|stale|none|unsupported` 行，
+  既有行保持逐字节不变。
 
 ## 托管本地 Hook 启动器（v6.90.0）
 
@@ -2991,5 +3010,6 @@ public struct HermeticLocalListenerReadinessHarness: Sendable {
 | 2026-08-31 | v6.86.0 | **Manus unknown-registration 原子 reconciliation**:官方 `GET /v2/webhook.list` 严格接收最多 1,024 项账号 inventory；单一 `webhookRecoveryStateV1` envelope 将 ID ledger、token、callback digest、±300 秒时间身份与 discovered IDs 一起 flush/readback。只归属 active exact-digest 且唯一 marker 的 row，歧义/空 list/legacy/corrupt 全部失败关闭；bound ID 跨重启直接重试，严格 official 404 `not_found` 完成幂等删除。Release gate 仍关闭，真实 create→signed delivery→list/delete 与一致性证据待补 | `[S][contract] security: reconcile unknown Manus registrations without guessing ownership` |
 | 2026-09-02 | v6.87.0 | **系统级决策快捷键**:`⌃⌥⌘Y` / `⌃⌥⌘N` 经 Carbon `RegisterEventHotKey` 注册，无需辅助功能授权，任何 App 前台时作用于 `pendingActionRequests.first`；仅 `.permission` 可被直接 Allow/Deny，`.question` 与 `.planReview` 只展开岛并高亮会话，空队列只展开岛。成功交付后发布 `islandGlobalDecisionApplied`，面板显示与岛内点击相同回执。开关 `island.shortcuts.globalDecisions` 默认开启，关闭即注销热键；`Esc` 语义不变 | `[C][contract] feat(app): decide the front permission request from any app` |
 | 2026-09-02 | v6.88.0 | **今日活动汇总**:`TaskStore.todayActivity` / `refreshTodayActivity(now:)` 暴露当天会话数、总活跃秒数与 Allow 次数；SQLite 只投影 `created_at`/`updated_at` 两列并沿用 bounded-row 谓词与 verified-read；Allow 计数按本地日分桶存于偏好、上限 100,000，Clear History 一并重置；只在 bootstrap、面板展开与菜单打开时刷新，不轮询。展示为状态菜单一行与空闲岛一行，只含数字与固定文案 | `[S][contract] feat(core): summarize today's sessions, approvals and agent time` |
+| 2026-09-05 | v6.91.0 | **本地 Agent Hook 心跳**:`LocalAgentActivityProbe` 只读 Codex/Claude Code 会话文件的类型与修改时间（≤8,192 项、跳过树内链接、根链接解析一次），`TaskStore` 记录每 source 最后 Hook 事件时间并按需（展开/菜单/Settings）在后台推导 reporting/not-reporting/idle/unknown；活动新鲜但无事件且无在岛会话即 not-reporting，空闲岛、状态菜单与 Settings 显示固定提示（Codex 指向 `/hooks`）；无定时器、无路径、无新枚举值 | `[S][contract] feat(core): notice when a connected Agent stops reporting` |
 | 2026-09-05 | v6.90.0 | **托管本地 Hook 启动器**:所有命令式 Hook 行固定为 `"${HOME}/…/island-app/bin/dev-island-hook" --route /hooks/<source> --event <Event> --port 7824 \|\| true`；传输细节全部移入注册表渲染的静态 `sh` 启动器（`0700`、单链接、字节精确、unsafe 不替换），生产监听器在授权轮换后非致命自愈；`/hooks/<source>` 继续作为 marker，JSON 安装先清除全部事件下的管理条目；Codex 只需在 `/hooks` 重新信任一次，此后 Dev Island 升级不再改动定义 | `[S][contract] feat(core): point every Hook at a fixed managed launcher` |
 | 2026-09-02 | v6.89.0 | **Welcome 第四步「点亮你的岛」**:四页共用同一固定几何；第四页先以 `localHookServiceStatus == .listening` 为门，再按已连接 Agent 给出 verbatim 命令（`claude -p "say hi"` / `codex exec "say hi"` / Codex `/hooks` 两段指引 / Cursor）与复制按钮；`OnboardingLiveSignalState` 只读 `TaskStore.tasks`、前向锁存 `.waiting → .seen → .completed` 且不因 SessionEnd 回退；不接管 `onTaskTransition`、无 `Task.detached`、`LocalAgentConfigurationExecutor.run(` 仍精确两处 | `[C][contract] feat(app): light up the island at the end of the Welcome Tour` |

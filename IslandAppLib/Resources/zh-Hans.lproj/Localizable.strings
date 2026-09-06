@@ -485,6 +485,12 @@
 "%lldm of agent time" = "Agent 运行 %lld 分钟";
 "%lldh %lldm of agent time" = "Agent 运行 %lld 小时 %lld 分钟";
 
+/* Hook reporting heartbeat */
+"%@ is running but not reporting to the island." = "%@ 正在运行，但没有向岛汇报。";
+"Open %@ and run %@ to trust the Dev Island hooks." = "打开 %@ 并输入 %@，信任 Dev Island 的 Hook。";
+"Update its hook in Settings › Agents." = "在设置 › Agent 中更新它的 Hook。";
+"Hooks are not reporting" = "Hook 没有汇报";
+
 /* Global decision shortcuts */
 "Decide from Anywhere" = "随时随地做决定";
 "Press ⌃⌥⌘Y to allow or ⌃⌥⌘N to deny the request at the front of the island while any app is active. Questions and plan reviews open the island instead." = "在任何应用中按 ⌃⌥⌘Y 允许、按 ⌃⌥⌘N 拒绝岛中排在最前的请求。问题与计划审阅会改为打开岛。";

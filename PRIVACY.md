@@ -137,6 +137,15 @@ progress events can be stored locally in:
 
 `~/Library/Application Support/island-app/tasks.sqlite`
 
+**Hook heartbeat reads dates, never sessions.** To notice when a connected
+agent is working but its hooks have silently stopped reporting (for example a
+Codex hook that is no longer trusted), Dev Island compares the newest
+modification date of that agent's own session files (`~/.codex/sessions`,
+`~/.codex/archived_sessions`, `~/.claude/projects`) with the last hook event it
+received. It enumerates at most 8,192 directory entries, reads only file type
+and modification date, never opens a session file, and keeps only a
+reporting/not-reporting/idle/unknown state in memory.
+
 **Project branch labels stay on your Mac.** To show which git branch a local
 agent session is working on, Dev Island reads at most 4 KiB from the `.git`
 entry and `HEAD` file of that session's project directory (walking up at most
@@ -642,6 +651,12 @@ document；渲染块、request/operation ID 与进度状态只存在于内存，
 512 KiB 尾部；文件并发增长不能扩大本次读取。解码模型不包含 Prompt、回复、路径、
 账号/会话 ID 或凭据字段，只把百分比、窗口时长、重置时间与事件时间交给界面；不会
 联网、访问钥匙串、写入数据库、日志或诊断。关闭功能会清除内存摘要。
+
+**Hook 心跳只读日期，不读会话。** 为了发现已连接的 Agent 正在工作但 Hook 已悄悄停止汇报
+（例如 Codex 中不再受信任的 Hook），Dev Island 会把该 Agent 自己会话文件的最新修改时间
+（`~/.codex/sessions`、`~/.codex/archived_sessions`、`~/.claude/projects`）与最后一次收到的
+Hook 事件做比较。它最多枚举 8,192 个目录项，只读取文件类型与修改时间，从不打开会话文件，
+内存中只保留正常/未汇报/空闲/未知四种状态。
 
 **项目分支标签只留在你的 Mac 上。** 为了显示本地 Agent 会话正在哪个 git 分支上工作，
 Dev Island 只会通过属于当前用户的 no-follow descriptor，从该会话项目目录（最多向上查找

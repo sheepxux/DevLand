@@ -1359,6 +1359,18 @@ private struct ConnectedServicesSection: View {
                 EmptyView()
             }
 
+            if let notice = LocalAgentReportingPresentation.notice(
+                store.reportingHealth,
+                language: language
+            ) {
+                LocalAgentReportingNoticeView(notice: notice)
+                    .task { await store.refreshReportingHealth() }
+            } else {
+                Color.clear
+                    .frame(height: 0)
+                    .task { await store.refreshReportingHealth() }
+            }
+
             LocalLiveReadinessCard(
                 snapshot: liveReadinessCheckState.snapshot,
                 isChecking: liveReadinessCheckState.isChecking,
@@ -1786,6 +1798,48 @@ private struct LocalLiveReadinessCard: View {
 /// Appears only when the shared loopback listener needs attention. Healthy
 /// operation stays quiet; failed delivery must not masquerade as a connected
 /// integration whose events are silently disappearing.
+/// Quiet Agents-page notice for a vendor that is working while its Hooks
+/// deliver nothing: the one situation where a blank island is a bug, not a
+/// quiet day.
+private struct LocalAgentReportingNoticeView: View {
+    let notice: LocalAgentReportingNotice
+    @Environment(\.devIslandLanguage) private var language
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 11) {
+            Image(systemName: "waveform.slash")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Palette.stateWaiting)
+                .frame(width: 22, height: 22)
+                .background(Circle().fill(Palette.stateWaiting.opacity(0.12)))
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(notice.title)
+                    .font(.system(size: 12, weight: .semibold))
+                Text(notice.hint)
+                    .font(.system(size: 11))
+                    .foregroundStyle(Palette.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 8)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Palette.stateWaiting.opacity(0.055))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(Palette.stateWaiting.opacity(0.28), lineWidth: 0.75)
+                }
+        )
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(L10n.string("Hooks are not reporting", language: language))
+        .accessibilityValue(notice.accessibilityLabel)
+    }
+}
+
 private struct LocalHookServiceNotice: View {
     let store: TaskStore
     @Environment(\.devIslandLanguage) private var language

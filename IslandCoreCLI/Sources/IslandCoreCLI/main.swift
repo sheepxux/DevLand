@@ -104,6 +104,19 @@ private func runLocalHookStatus() -> Int32 {
     for agent in snapshot.agents {
         print("[CLI] \(agent.source)=\(agent.state.rawValue)")
     }
+    // Vendor-side heartbeat: metadata-only, no session content is read.
+    let probe = LocalAgentActivityProbe()
+    for agent in snapshot.agents where agent.state == .connected || agent.state == .configured {
+        let activity: String
+        switch probe.activity(for: agent.source) {
+        case .unsupported: activity = "unsupported"
+        case .none: activity = "none"
+        case let .active(date):
+            activity = Date.now.timeIntervalSince(date) <= LocalAgentReportingSnapshot.defaultActivityWindow
+                ? "recent" : "stale"
+        }
+        print("[CLI] activity \(agent.source)=\(activity)")
+    }
     print(
         "[CLI] connected=\(snapshot.connectedCount) "
             + "configured=\(snapshot.configuredCount) "

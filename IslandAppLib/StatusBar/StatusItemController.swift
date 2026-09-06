@@ -73,10 +73,19 @@ public final class StatusItemController: NSObject, NSMenuDelegate {
             menu.addItem(disabledItem(today))
         }
         menu.addItem(disabledItem(snapshot.localAgents))
+        if let notice = LocalAgentReportingPresentation.notice(
+            store.reportingHealth,
+            language: language
+        ) {
+            menu.addItem(disabledItem(notice.title))
+        }
         menu.addItem(disabledItem(snapshot.manus))
         // Numbers shown above come from the last refresh; start the next one
         // so the following open is current without ever polling.
-        Task { await store.refreshTodayActivity() }
+        Task {
+            await store.refreshTodayActivity()
+            await store.refreshReportingHealth()
+        }
 
         menu.addItem(.separator())
 

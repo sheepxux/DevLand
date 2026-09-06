@@ -485,6 +485,12 @@
 "%lldm of agent time" = "%lldm of agent time";
 "%lldh %lldm of agent time" = "%lldh %lldm of agent time";
 
+/* Hook reporting heartbeat */
+"%@ is running but not reporting to the island." = "%@ is running but not reporting to the island.";
+"Open %@ and run %@ to trust the Dev Island hooks." = "Open %@ and run %@ to trust the Dev Island hooks.";
+"Update its hook in Settings › Agents." = "Update its hook in Settings › Agents.";
+"Hooks are not reporting" = "Hooks are not reporting";
+
 /* Global decision shortcuts */
 "Decide from Anywhere" = "Decide from Anywhere";
 "Press ⌃⌥⌘Y to allow or ⌃⌥⌘N to deny the request at the front of the island while any app is active. Questions and plan reviews open the island instead." = "Press ⌃⌥⌘Y to allow or ⌃⌥⌘N to deny the request at the front of the island while any app is active. Questions and plan reviews open the island instead.";

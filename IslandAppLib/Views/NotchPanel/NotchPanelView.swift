@@ -54,6 +54,8 @@ struct NotchPanelView: View {
     var isLive: Bool = true
     /// Pre-rendered "Today: …" line for the idle state; nil hides the row.
     var todaySummary: String? = nil
+    /// "X is running but not reporting" notice for the idle state.
+    var reportingNotice: LocalAgentReportingNotice? = nil
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.devIslandLanguage) private var language
@@ -572,6 +574,19 @@ struct NotchPanelView: View {
                 ))
                     .font(.system(size: 11))
                     .foregroundStyle(Palette.textSecondary.opacity(0.88))
+
+                if let reportingNotice {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(reportingNotice.title)
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(Palette.stateWaiting)
+                        Text(reportingNotice.hint)
+                            .font(.system(size: 11))
+                            .foregroundStyle(Palette.textSecondary.opacity(0.88))
+                    }
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityElement(children: .combine)
+                }
 
                 if let todaySummary {
                     Text(todaySummary)

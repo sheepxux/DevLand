@@ -143,6 +143,12 @@ public final class TaskStore {
     /// Health of the local-only HTTP listener shared by every CLI connector.
     /// This is separate from `connectionStatus`, which describes Manus.
     public private(set) var localHookServiceStatus: LocalHookServiceStatus = .stopped
+    /// Whether each connected Agent's Hooks are actually delivering events,
+    /// judged against the vendor's own on-disk activity. Refreshed on demand
+    /// by the surfaces that show it; never polled.
+    public private(set) var reportingHealth: LocalAgentReportingSnapshot?
+    /// Arrival time of the last Hook event per source. Memory only.
+    private var lastLocalHookEventAt: [String: Date] = [:]
 
     /// Task status-transition callback (contract v1.4.0, J1). B side assigns
     /// once at app startup and maps transitions to notifications.
@@ -801,6 +807,35 @@ public final class TaskStore {
         }
     }
 
+    /// Compare each connected Agent's on-disk activity with the Hook events
+    /// the island received. Config reads and directory enumeration run on a
+    /// background task; only low-cardinality states return to the main actor.
+    @discardableResult
+    public func refreshReportingHealth(
+        now: Date = .now,
+        probe: LocalAgentActivityProbe = LocalAgentActivityProbe()
+    ) async -> LocalAgentReportingSnapshot {
+        let lastEvents = lastLocalHookEventAt
+        let liveSources = Set(tasks.map(\.source))
+        let snapshot = await Task.detached(priority: .utility) {
+            let hooks = LocalAgentHookDiagnostics.snapshot()
+            var activity: [String: LocalAgentActivityProbe.Activity] = [:]
+            for agent in hooks.agents where agent.state == .connected || agent.state == .configured {
+                activity[agent.source] = probe.activity(for: agent.source)
+            }
+            return LocalAgentReportingSnapshot.derive(
+                hooks: hooks,
+                activity: activity,
+                lastHookEventAt: lastEvents,
+                liveSources: liveSources,
+                now: now
+            )
+        }.value
+        guard !shutdownRequested else { return snapshot }
+        reportingHealth = snapshot
+        return snapshot
+    }
+
     /// Fold one Allow into the visible summary without a storage round trip.
     private func recordApprovalForToday(now: Date = .now) {
         let count = decisionCounter.recordApproval(at: now)
@@ -1270,6 +1305,7 @@ public final class TaskStore {
         event: LocalAgentEvent
     ) async {
         guard !shutdownRequested else { return }
+        lastLocalHookEventAt[source] = .now
         // Look up through the stored map (not a closure capture) so the
         // store's property is the single owner and a future pipeline restart
         // can swap connectors safely.
