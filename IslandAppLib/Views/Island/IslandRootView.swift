@@ -403,7 +403,7 @@ struct IslandRootView: View {
         guard let task = presentation.primaryTask else {
             return L10n.string("No sessions")
         }
-        return task.currentPhase ?? task.title
+        return CodexSessionMonitoringPresentation.displayPhase(for: task) ?? task.title
     }
 
     private var nextRecentResultExpiry: Date? {

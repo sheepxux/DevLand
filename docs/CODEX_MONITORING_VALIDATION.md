@@ -38,7 +38,8 @@ its product version differs from VERSION. Separately running the remaining
 gates also found that the Deny and system-accessibility receipts carry older
 versions. None of these receipts or their accepted markers was rewritten.
 
-The candidate has not replaced the user's running app. No real Hook trust was
+At the time of the September 6 test report, the candidate had not yet replaced
+the running app; it was subsequently opened and showed a real task. No real Hook trust was
 changed. A fresh helper verifying saved trust does not prove the existing
 Codex desktop task has reloaded it. Current-candidate passive monitoring,
 explicit user authorization, Allow/Deny continuation and accessibility still
@@ -54,3 +55,115 @@ need real interaction evidence before release acceptance.
 Package.resolved was repaired because the baseline omitted Hummingbird's
 transitive swift-configuration dependency on this toolchain. Existing dependency
 versions were retained; the resolver also removed two unused SQLite pins.
+
+## Post-candidate change (2026-09-11)
+
+The candidate above polled the sessions root every 1 s (active) / 3 s (idle).
+On the release branch this was replaced by an FSEvents subscription plus a
+single expiry deadline (`CodexSessionLogWatcher`, `CodexSessionChangeSignal`,
+`CodexSessionMonitorSchedule`; interface contract v6.93.0). The read budgets,
+parser and reconciliation rules are unchanged. The 2026-09-06 candidate bundle
+therefore no longer matches the source; live acceptance must use a rebuilt
+candidate.
+
+## Rebuilt candidate and runtime verification (2026-09-11)
+
+The event-driven candidate was rebuilt, opened, and restarted on the Mac.
+Its source remains uncommitted on `chore/release-0.4.0`, based on `6a490aa`.
+
+- The initial focused run reproduced a missing-directory subscription failure.
+  The fix binds existing directories by device/inode, permits explicit recovery
+  after subscription failure, and signals a final scan after re-subscription.
+- Filesystem wakes now force bounded discovery of older date directories, even
+  within the ten-second discovery cache window. An uncached old session that
+  resumes cannot be left waiting indefinitely for another filesystem event.
+- Cancelled or timed-out approvals immediately release cached terminal state;
+  history publication remains owned by the existing monitor task.
+- **58 focused tests passed; 1029 full tests passed, with zero failures.** The
+  authoritative wrapper also passed all five stability groups (20 version-probe,
+  10 hermetic-listener, 20 tmux, 5 Hook-trust, and 20 sleep/wake rounds).
+- Localization, legal/data-flow, performance-analysis, repository script syntax,
+  and release-foundation checks passed. The complete security gate passed its
+  source checks but still stops at the unchanged **0.3.0 Allow receipt**, which
+  does not match VERSION **0.4.0**. The later Deny/accessibility receipt gates
+  were not reached and must not be reported as passing.
+- Universal production bundle: six Mach-O files with arm64+x86_64, dependency
+  closure and strict deep ad-hoc signature passed. Eight isolated launch-smoke
+  samples completed with readiness, normal AppKit termination and exit 0.
+- Native UI verification showed two running Codex sessions, including the
+  current DevLand task and the older joint task, plus one ended response.
+  Monitoring off/on showed the correct stopped/monitoring states; restarting
+  the exact candidate restored task visibility and the loopback listener.
+  The monitoring preference was restored to on. No Hook authorization was made.
+
+Candidate:
+`/Volumes/T7 Shield/MacMini/CodexFiles/DevIsland-Optimization/qa/codex-event-monitoring-20260911/build/Dev Island.app`
+
+Executable SHA-256:
+`2260e3676cba429010ffb0152aabf1380a9932872f486993e237f83bcb9412e7`
+
+Tests, gate logs, source manifest, build/smoke evidence and process measurements:
+`/Volumes/T7 Shield/MacMini/CodexFiles/DevIsland-Optimization/qa/codex-event-monitoring-20260911/`
+
+Old/new process samples are observations with real Codex activity, not controlled
+idle comparisons. Idle energy acceptance, a newly created real task, actual
+response-end/interruption transitions, and current-candidate explicit Hook
+authorization / Allow / Deny / accessibility acceptance remain outstanding.
+Automated fixtures and previously accepted 0.3.0 receipts do not replace them.
+
+
+## Persistent-writer correction and replacement candidate (2026-09-11)
+
+The directory-only candidate above was found to miss appends while Codex kept
+its rollout writer open. Both directory FSEvents and FileEvents delivered zero
+callbacks in the isolated persistent-writer diagnostic; a real ten-second
+window changed four files by 26,604 bytes without either stream notifying.
+The earlier 0.226% CPU observation must not be treated as an optimization result:
+it included a monitor that could miss updates. The original evidence is retained.
+
+The replacement (interface contract v6.94.0) keeps directory discovery and adds
+at most 64 active event-only vnode subscriptions to exact discovered files.
+No-follow opens and device/inode checks bind the subscriptions; one event-driven
+window merges callbacks, with no periodic polling. Cancel handlers close their
+own descriptors, and new subscriptions schedule a reread to cover the setup gap.
+
+- The open-writer regression failed twice before the fix, then passed.
+  **62 focused and 1033 full tests passed**, plus all five authoritative stability
+  groups. Localization, legal/data-flow, performance-analysis, script syntax and
+  release foundation passed. The legal gate's stale v6.93 pin was corrected.
+- Full security again reached the unchanged 0.3.0 Allow receipt and rejected its
+  VERSION mismatch. This is not a successful full security/receipt acceptance.
+- The replacement universal production build and signature/dependency checks
+  passed. Its isolated eight-sample launch smoke exited normally with status 0.
+- Native UI showed two running Codex tasks. Two read-only checkpoints found the
+  current task's source timestamp advancing as the same rollout inode grew and
+  retained an open writer; the App was not restarted or toggled between them.
+- Turning monitoring off released all 64 rollout descriptors; turning it on
+  restored 64. Normal quit removed the process/listener, and relaunch restored
+  the two running sessions and listener. The preference remains enabled.
+
+Replacement App:
+`/Volumes/T7 Shield/MacMini/CodexFiles/DevIsland-Optimization/qa/codex-event-monitoring-20260911/build-open-writer-fix/Dev Island.app`
+
+Executable SHA-256:
+`52f648568553f4f889e54a9ee8545abfac2f778f3994fd6b22cdb7694fd5bea7`
+
+See `VALIDATION_OPEN_WRITER_FIX.md` in the evidence directory for the final quiet
+sample, parser compatibility checks and remaining real acceptance boundaries.
+
+
+The acceptance packagers now also recognize exactly `source=vscode` with CLI
+`0.153.4`, retaining Codex Desktop originator, user-task and UUID checks. All
+legacy source classifications and decision-evidence constraints remain intact.
+A portable synthetic regression runs before the existing receipt gates:
+**70 parser checks passed**. This is format compatibility evidence only; no real
+approval was requested, no transcript was rewritten and no receipt was accepted.
+
+
+The post-fix quiet-input attempt was **invalid**: despite 45 seconds of controller
+silence, no observed build processes and an unlocked screen, three rollout files
+grew by 366,465 bytes during the 30-second sample. FSEvents remained at zero;
+metadata checks correctly rejected the window. Average CPU was 0.543% under that
+activity, not an idle-energy result. A controlled quiet window and matched old/new
+comparison remain outstanding. Full security passed the new 70 parser checks and
+then stopped at the unchanged old Allow receipt as expected.

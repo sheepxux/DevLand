@@ -4138,7 +4138,8 @@ for invariant in \
   '"expectedVersion": fresh.configVersion' \
   '"mergeStrategy": "upsert"' \
   'current.trustStatus == "trusted"' \
-  'guard monitoredHome == installedHome else { return nil }' \
+  'return monitoredHome == installedHome' \
+  'guard monitorsInstalledHome else { return nil }' \
   'CodexHookTrustProbe.verifiedCodexExecutable()'; do
   rg -Fq "$invariant" "$CODEX_AUTHORIZATION" \
     || fail "Reviewed Codex authorization boundary missing: $invariant"
@@ -4157,15 +4158,138 @@ if rg -n 'CodexHookAuthorization|config/batchWrite|URLSession|IslandLogger|os_lo
   "$CODEX_SESSION_DIR/CodexSessionLogParser.swift"; then
   fail "Passive Codex monitoring must not authorize, network or log session records"
 fi
+# The trust writer obeys every prohibition the read-only probe obeys.
+if rg -n 'Process\(\)|Thread\s*\{|DispatchSemaphore' "$CODEX_AUTHORIZATION"; then
+  fail "Codex authorization must not depend on Process, helper threads, or run-loop callbacks"
+fi
+if rg -n '/usr/local|/opt/homebrew|which codex|executableURL = URL\(fileURLWithPath:.*codex' "$CODEX_AUTHORIZATION"; then
+  fail "Codex authorization must not execute PATH or package-manager shims"
+fi
+if rg -n 'IslandLogger|Logger\(|os_log|NSLog|print\(' \
+  "$CODEX_AUTHORIZATION" \
+  "IslandAppLib/Views/Settings/CodexHookAuthorizationSheet.swift" \
+  "IslandAppLib/Presentation/CodexTrustGuidance.swift"; then
+  fail "Codex authorization must never log App Server output, commands or hashes"
+fi
+for invariant in \
+  'outputLimit: CodexHookTrustProbe.responseLimitBytes, timeout: 3' \
+  '"PATH": "/usr/bin:/bin:/usr/sbin:/sbin"' \
+  '== "codex-cli 0.153.4"' \
+  'guard Self.monitorsInstalledHome else { throw CodexHookAuthorizationError.unsupportedHome }'; do
+  rg -Fq "$invariant" "$CODEX_AUTHORIZATION" \
+    || fail "Codex authorization process boundary missing: $invariant"
+done
+rg -Fq 'verifiedCodexVersion = "0.153.4"' IslandCore/Sources/IslandCore/Connectors/Framework/LocalLiveReadiness.swift \
+  || fail "Readiness and authorization must pin the same Codex CLI version"
+# Passive markers never reach a surface unlocalized.
+for invariant in \
+  'CodexSessionMonitoringPresentation.displayPhase(for: task) ?? task.title'; do
+  rg -Fq "$invariant" IslandAppLib/Views/Island/IslandRootView.swift \
+    || fail "Compact island must localize passive Codex phases: $invariant"
+done
+rg -Fq 'let phase = CodexSessionMonitoringPresentation.displayPhase(for: task)' IslandAppLib/Notifications/TaskNotifier.swift \
+  || fail "Notification bodies must localize passive Codex phases"
+rg -Fq '!CodexSessionPhase.isInterruption(transition.task.currentPhase)' IslandAppLib/Notifications/TaskNotifier.swift \
+  || fail "A user interruption of a Codex response must not raise an attention notification"
+if rg -n '"Response finished"|"Interrupted"|"Response failed"' "$CODEX_SESSION_DIR/CodexSessionLogParser.swift"; then
+  fail "The Codex transcript parser must store phase markers, not English copy"
+fi
+for regression in \
+  'testTerminalEventsStoreStablePhaseMarkersNotEnglishCopy' \
+  'testTimestampsWithAnyFractionalDigitCountParse'; do
+  rg -Fq "$regression" IslandCoreTests/Sources/IslandCoreTests/CodexSessionLogParserTests.swift \
+    || fail "Codex parser regression missing: $regression"
+done
+rg -Fq 'testCodexInterruptionIsQuietButAGenuineFailureStillAlerts' \
+  IslandAppLibTests/Sources/IslandAppLibTests/TaskNotificationPolicyTests.swift \
+  || fail "Codex interruption notification regression is missing"
+rg -Fq 'testDisplayPhaseNeverLeaksAMarkerAndLeavesOtherAgentsAlone' \
+  IslandAppLibTests/Sources/IslandAppLibTests/CodexSessionMonitoringPresentationTests.swift \
+  || fail "Codex phase presentation regression is missing"
+rg -Fq 'testRecentDayQuickScanCoversTheLocalDateFolder' \
+  IslandCoreTests/Sources/IslandCoreTests/CodexSessionLogMonitorTests.swift \
+  || fail "Codex local-date discovery regression is missing"
 for regression in \
   'testPendingApprovalWinsEvenOverLaterTerminalLog' \
   'testDelayedHistoricalDiscoveryIsQuietButNewResponseNotifies' \
-  'testCancelledApprovalReleasesCachedTerminalObservationOnNextPoll' \
+  'testCancelledApprovalReleasesCachedTerminalObservationWithoutAnotherPoll' \
+  'testTimedOutApprovalReleasesCachedTerminalObservationWithoutAnotherPoll' \
   'testPassiveVisibilityDoesNotClaimHooksAreReporting' \
   'testShutdownRejectsLatePassiveSnapshots'; do
   rg -Fq "$regression" IslandCoreTests/Sources/IslandCoreTests/CodexSessionReconcilerTests.swift \
     || fail "Independent Codex monitoring regression missing: $regression"
 done
+
+# Passive Codex monitoring is event-driven. One FSEvents subscription on the
+# sessions root (directory-level, no per-file paths requested or read) and a
+# single expiry deadline decide when the logs are read; no periodic timer.
+CODEX_WATCHER="$CODEX_SESSION_DIR/CodexSessionLogWatcher.swift"
+CODEX_SIGNAL="$CODEX_SESSION_DIR/CodexSessionChangeSignal.swift"
+CODEX_SCHEDULE="$CODEX_SESSION_DIR/CodexSessionMonitorSchedule.swift"
+for file in "$CODEX_WATCHER" "$CODEX_SIGNAL" "$CODEX_SCHEDULE"; do
+  [[ -f "$file" ]] || fail "Event-driven Codex monitoring source missing: $file"
+done
+if rg -n 'CodexHookAuthorization|config/batchWrite|URLSession|IslandLogger|os_log|NSLog|print\(|String\(cString|kFSEventStreamCreateFlagFileEvents|kFSEventStreamCreateFlagUseCFTypes|kFSEventStreamCreateFlagIgnoreSelf' \
+  "$CODEX_WATCHER" "$CODEX_SIGNAL" "$CODEX_SCHEDULE"; then
+  fail "Codex session watcher must not read event paths, log, network or authorize"
+fi
+for invariant in \
+  'kFSEventStreamCreateFlagNoDefer | kFSEventStreamCreateFlagWatchRoot' \
+  'kFSEventStreamEventFlagRootChanged' \
+  'FSEventStreamEventId(kFSEventStreamEventIdSinceNow)' \
+  'weak var watcher: CodexSessionLogWatcher?' \
+  'FSEventStreamInvalidate(stream)' \
+  'let parent = root.deletingLastPathComponent()' \
+  'func refresh()'; do
+  rg -Fq "$invariant" "$CODEX_WATCHER" \
+    || fail "Codex session watcher invariant missing: $invariant"
+done
+if rg -n 'Task\.sleep\(for: \.seconds\(active|Task\.sleep\(for: \.seconds\([13]\)\)' "$TASK_STORE"; then
+  fail "Codex session monitoring must not poll on a timer"
+fi
+for invariant in \
+  'let signal = CodexSessionChangeSignal()' \
+  'CodexSessionLogWatcher(root: CodexSessionLogMonitor.defaultRoot, onChange: nudge)' \
+  'watcher.stop()' \
+  'watcher.refresh()' \
+  'if codexSessionMonitorStatus == .notFound { codexSessionMonitorNudge?() }' \
+  'if (!watching || !filesWatching), status == .available { status = .unavailable }' \
+  'let filesWatching = watcher.updateFiles(fileTargets)' \
+  'CodexSessionMonitorSchedule.nextDeadline(' \
+  'let wake = await signal.wait(until: deadline)' \
+  'if wake == .cancelled { return }' \
+  'forceDiscovery = wake == .changed' \
+  'monitor.poll(forceDiscovery: forceDiscovery)' \
+  'let watching = watcher.refresh()'; do
+  rg -Fq "$invariant" "$TASK_STORE" \
+    || fail "Event-driven Codex monitoring loop invariant missing: $invariant"
+done
+rg -Fq 'hasDeferredReads = false' "$CODEX_SESSION_DIR/CodexSessionLogMonitor.swift" \
+  || fail "Codex session monitor must reset its deferred-read marker every pass"
+for regression in \
+  'testRootCreatedLaterIsPickedUpAndItsContentsThenNotify' \
+  'testRootRemovalNotifies' \
+  'testStopSuppressesLaterNotificationsAndIsIdempotent' \
+  'testFailedSubscriptionCanRecoverOnRefreshWithoutRetryLoop' \
+  'testRearmFailureIsReportedAndCanRecover' \
+  'testSuccessiveAppendsNotifyWhileTheWriterRemainsOpen' \
+  'testWatcherDeallocatesWhileStreamIsArmed'; do
+  rg -Fq "$regression" IslandCoreTests/Sources/IslandCoreTests/CodexSessionLogWatcherTests.swift \
+    || fail "Codex session watcher regression missing: $regression"
+done
+for regression in \
+  'testCancellationReleasesAWaiterWithoutDeadline' \
+  'testCancelledTaskDoesNotWait' \
+  'testSignalAfterDeadlineIsKeptForTheNextWait'; do
+  rg -Fq "$regression" IslandCoreTests/Sources/IslandCoreTests/CodexSessionChangeSignalTests.swift \
+    || fail "Codex change-signal regression missing: $regression"
+done
+rg -Fq 'testExhaustedBudgetReportsDeferredReadsUntilCaughtUp' \
+  IslandCoreTests/Sources/IslandCoreTests/CodexSessionLogMonitorTests.swift \
+  || fail "Codex deferred-read regression is missing"
+rg -Fq 'testChangeDiscoversAnUncachedOldSessionBeforeTheNextSweep' \
+  IslandCoreTests/Sources/IslandCoreTests/CodexSessionLogMonitorTests.swift \
+  || fail "Codex event-driven old-session discovery regression is missing"
 
 for file in \
   "$LOCAL_LIVE_READINESS" \
@@ -4178,7 +4302,7 @@ for file in \
 done
 for invariant in \
   'verifiedClaudeCodeVersion = "2\.1\.197"' \
-  'verifiedCodexVersion = "0\.149\.0-alpha\.4\.3"' \
+  'verifiedCodexVersion = "0\.153\.4"' \
   'case checkFailed = "check-failed"' \
   'outputLimitBytes = 4 \* 1_024' \
   'defaultTimeout: TimeInterval = 2' \
@@ -4543,6 +4667,7 @@ rg -Fq 'export LC_ALL=C' scripts/ci/verify-localizations.sh \
 ./scripts/ci/verify-legal-data-flows.sh
 ./scripts/ci/verify-ci-diagnostics.sh
 ./scripts/ci/verify-manus-live-acceptance-evidence.sh
+/usr/bin/ruby ./scripts/ci/verify-codex-live-metadata-compatibility.rb
 ./scripts/ci/verify-codex-live-approval-evidence.sh
 ./scripts/ci/verify-codex-live-decision-evidence.sh
 ./scripts/ci/verify-system-accessibility-evidence.sh

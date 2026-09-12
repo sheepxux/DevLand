@@ -487,15 +487,10 @@
 
 /* Hook reporting heartbeat */
 "%@ is running but not reporting to the island." = "%@ is running but not reporting to the island.";
-"Open %@ and run %@ to trust the Dev Island hooks." = "Open %@ and run %@ to trust the Dev Island hooks.";
 "Update its hook in Settings › Agents." = "Update its hook in Settings › Agents.";
 "Hooks are not reporting" = "Hooks are not reporting";
 
 /* Guided Codex trust */
-"Codex trusts a hook once. Open Codex, run %@, and trust these %lld Dev Island entries:" = "Codex trusts a hook once. Open Codex, run %@, and trust these %lld Dev Island entries:";
-"Open Codex and copy %@" = "Open Codex and copy %@";
-"Copies %@ to the clipboard and brings Codex to the front" = "Copies %@ to the clipboard and brings Codex to the front";
-"Codex is not installed on this Mac. %@ is on the clipboard for when it is." = "Codex is not installed on this Mac. %@ is on the clipboard for when it is.";
 "Dev Island entries to trust in Codex" = "Dev Island entries to trust in Codex";
 
 /* Global decision shortcuts */
@@ -516,6 +511,8 @@
 "Reading Dev Island hooks…" = "Reading Dev Island hooks…";
 "Launch command copied" = "Launch command copied";
 "Copy Codex CLI launch command" = "Copy Codex CLI launch command";
+"Authorizing saves trust records for exactly these entries in your Codex configuration (config.toml). Nothing else is changed." = "Authorizing saves trust records for exactly these entries in your Codex configuration (config.toml). Nothing else is changed.";
+"Dev Island monitors a different CODEX_HOME than the one its hooks are installed in. Review the hooks manually in that Codex CLI." = "Dev Island monitors a different CODEX_HOME than the one its hooks are installed in. Review the hooks manually in that Codex CLI.";
 "Review the exact commands before authorizing Dev Island hooks" = "Review the exact commands before authorizing Dev Island hooks";
 "Disable hooks" = "Disable hooks";
 "Enable hooks" = "Enable hooks";
@@ -529,10 +526,11 @@
 "Monitoring local Codex activity" = "Monitoring local Codex activity";
 "Local Codex sessions could not be read" = "Local Codex sessions could not be read";
 "Send a prompt in Codex. The island reads local session activity; hook authorization is only needed for approvals." = "Send a prompt in Codex. The island reads local session activity; hook authorization is only needed for approvals.";
-"Review the Dev Island hooks, then send a prompt in Codex." = "Review the Dev Island hooks, then send a prompt in Codex.";
+"Review and authorize the Dev Island hooks, then send a prompt in Codex." = "Review and authorize the Dev Island hooks, then send a prompt in Codex.";
 "Check session monitoring and approval authorization in Settings › Agents." = "Check session monitoring and approval authorization in Settings › Agents.";
 "For manual setup, use %@ in Codex CLI to trust only Dev Island entries. Otherwise, use Review and authorize hooks below." = "For manual setup, use %@ in Codex CLI to trust only Dev Island entries. Otherwise, use Review and authorize hooks below.";
 
 "Response finished" = "Response finished";
 "Response interrupted" = "Response interrupted";
+"Response failed" = "Response failed";
 "Codex finished this response. Session monitoring is working." = "Codex finished this response. Session monitoring is working.";

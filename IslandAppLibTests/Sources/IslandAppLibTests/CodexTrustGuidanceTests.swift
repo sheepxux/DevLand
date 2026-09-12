@@ -39,6 +39,19 @@ final class CodexTrustGuidanceTests: XCTestCase {
         XCTAssertNil(CodexTrustGuidance.launcherCommand(executableURL: URL(fileURLWithPath: "/tmp/codex\ncommand")))
     }
 
+    func testHomeMismatchHasItsOwnMessageInBothLanguages() {
+        let english = CodexTrustGuidance.errorMessage(CodexHookAuthorizationError.unsupportedHome, language: .english)
+        let chinese = CodexTrustGuidance.errorMessage(CodexHookAuthorizationError.unsupportedHome, language: .simplifiedChinese)
+        XCTAssertTrue(english.contains("CODEX_HOME"))
+        XCTAssertTrue(chinese.contains("CODEX_HOME"))
+        XCTAssertNotEqual(english, chinese)
+        XCTAssertNotEqual(
+            english,
+            CodexTrustGuidance.errorMessage(CodexHookAuthorizationError.unavailable, language: .english),
+            "a custom home is not the same as a missing install"
+        )
+    }
+
     func testMonitoringAndApprovalGuidanceRemainDistinctInBothLanguages() {
         XCTAssertTrue(CodexTrustGuidance.summary(language: .english).contains("independently"))
         XCTAssertTrue(CodexTrustGuidance.summary(language: .simplifiedChinese).contains("独立"))

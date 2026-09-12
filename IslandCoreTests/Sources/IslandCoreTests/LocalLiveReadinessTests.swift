@@ -30,7 +30,7 @@ final class LocalLiveReadinessTests: XCTestCase {
         )
         XCTAssertEqual(
             LocalCLIVersionProbe.compatibilityState(
-                output: Data("codex-cli 0.149.0-alpha.4.3\n".utf8),
+                output: Data("codex-cli 0.153.4\n".utf8),
                 expectedVersion: LocalLiveReadinessProbe.verifiedCodexVersion
             ),
             .verified

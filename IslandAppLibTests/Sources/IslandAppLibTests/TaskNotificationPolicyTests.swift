@@ -10,6 +10,25 @@ final class TaskNotificationPolicyTests: XCTestCase {
         XCTAssertEqual(TaskNotificationKind.waiting.title(source: "codex", language: .english), "Task Needs Input")
     }
 
+    func testCodexInterruptionIsQuietButAGenuineFailureStillAlerts() {
+        func transition(phase: String) -> TaskTransition {
+            TaskTransition(
+                task: AgentTask(id: "s", source: "codex", title: "t", status: .failed, currentPhase: phase,
+                                createdAt: .now, updatedAt: .now, taskURL: "file:///p/"),
+                oldStatus: .running
+            )
+        }
+        XCTAssertNil(TaskNotificationKind.decide(
+            for: transition(phase: CodexSessionPhase.interrupted), attentionRequired: true, completions: true
+        ), "the user stopped the response themselves")
+        XCTAssertEqual(TaskNotificationKind.decide(
+            for: transition(phase: CodexSessionPhase.responseFailed), attentionRequired: true, completions: true
+        ), .failed)
+        XCTAssertEqual(TaskNotificationKind.decide(
+            for: transition(phase: "Turn failed"), attentionRequired: true, completions: true
+        ), .failed, "other Agents' phases are untouched")
+    }
+
     func testNewlyDiscoveredWaitingTaskDoesNotNotify() {
         let transition = TaskTransition(task: task(.waiting), oldStatus: nil)
 

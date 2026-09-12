@@ -11,14 +11,25 @@ struct CodexHookAuthorizationSheet: View {
     @State private var isWorking = true
     @State private var errorMessage: String?
     @State private var copiedLauncher = false
+    /// Resolved once off the main thread: locating the CLI validates the whole
+    /// signed bundle, which must never run inside a button action.
+    @State private var executableURL: URL?
     private let authorization = CodexHookAuthorization()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text(L10n.string("Authorize Dev Island hooks", language: language))
                 .font(.system(size: 18, weight: .semibold))
+                .accessibilityAddTraits(.isHeader)
             Text(L10n.string(
                 "Allow Codex to run these Dev Island commands for task updates and approval requests on this Mac. Each tool request still follows your Codex approval settings.",
+                language: language
+            ))
+                .font(.system(size: 12))
+                .foregroundStyle(Palette.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(L10n.string(
+                "Authorizing saves trust records for exactly these entries in your Codex configuration (config.toml). Nothing else is changed.",
                 language: language
             ))
                 .font(.system(size: 12))
@@ -54,23 +65,26 @@ struct CodexHookAuthorizationSheet: View {
                 Text(errorMessage)
                     .font(.system(size: 12))
                     .foregroundStyle(Palette.stateWaiting)
-                Text(CodexTrustGuidance.manualInstructions(language: language))
-                    .font(.system(size: 11))
-                    .foregroundStyle(Palette.textSecondary)
-                Button {
-                    copiedLauncher = CodexTrustGuidance.copyCLILaunchCommand()
-                } label: {
-                    Text(L10n.string(
-                        copiedLauncher ? "Launch command copied" : "Copy Codex CLI launch command",
-                        language: language
-                    ))
+                if let executableURL {
+                    Text(CodexTrustGuidance.manualInstructions(language: language))
+                        .font(.system(size: 11))
+                        .foregroundStyle(Palette.textSecondary)
+                    Button {
+                        copiedLauncher = CodexTrustGuidance.copyCLILaunchCommand(executableURL: executableURL)
+                    } label: {
+                        Text(L10n.string(
+                            copiedLauncher ? "Launch command copied" : "Copy Codex CLI launch command",
+                            language: language
+                        ))
+                    }
+                    .buttonStyle(.bordered)
                 }
-                .buttonStyle(.bordered)
             }
 
             HStack {
                 Spacer()
                 Button(L10n.string("Cancel", language: language)) { dismiss() }
+                    .keyboardShortcut(.cancelAction)
                     .disabled(isWorking && review != nil)
                 Button(L10n.string(
                     review?.isAlreadyAuthorized == true ? "Done" : "Authorize Dev Island hooks",
@@ -88,6 +102,9 @@ struct CodexHookAuthorizationSheet: View {
         .foregroundStyle(Palette.warmWhite)
         .task {
             let authorization = authorization
+            executableURL = await Task.detached(priority: .userInitiated) {
+                CodexHookAuthorization.verifiedExecutableURL()
+            }.value
             let result = await Task.detached(priority: .userInitiated) {
                 Result { try authorization.review() }
             }.value

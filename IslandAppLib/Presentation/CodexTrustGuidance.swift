@@ -57,6 +57,8 @@ enum CodexTrustGuidance {
         switch error as? CodexHookAuthorizationError {
         case .unavailable:
             key = "The signed Codex app could not be found. Install Codex, then try again."
+        case .unsupportedHome:
+            key = "Dev Island monitors a different CODEX_HOME than the one its hooks are installed in. Review the hooks manually in that Codex CLI."
         case .unsupportedVersion:
             key = "This Codex version needs manual hook review in Codex CLI."
         case .invalidDefinitions:

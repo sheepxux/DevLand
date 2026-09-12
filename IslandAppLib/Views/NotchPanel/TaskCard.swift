@@ -192,7 +192,7 @@ struct TaskCard: View {
 
     private var statusLabel: String {
         if task.source == "codex",
-           let response = CodexSessionMonitoringPresentation.responseStatus(task.status, language: language) {
+           let response = CodexSessionMonitoringPresentation.responseStatus(task.status, phase: task.currentPhase, language: language) {
             return response
         }
         let key: String
@@ -207,7 +207,7 @@ struct TaskCard: View {
 
     private var displayedPhase: String? {
         if task.source == "codex",
-           let response = CodexSessionMonitoringPresentation.responseStatus(task.status, language: language) {
+           let response = CodexSessionMonitoringPresentation.responseStatus(task.status, phase: task.currentPhase, language: language) {
             return response
         }
         return task.currentPhase

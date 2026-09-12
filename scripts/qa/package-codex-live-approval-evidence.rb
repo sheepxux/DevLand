@@ -110,6 +110,15 @@ module CodexLiveApprovalPackager
     output.map { |item| item.is_a?(Hash) ? item["text"].to_s : "" }.join
   end
 
+  def reviewed_session_source?(meta, allow_exec: false)
+    source = meta["source"]
+    return true if source == "cli" || (allow_exec && source == "exec")
+
+    # The signed 0.153.4 Desktop client reports user tasks as "vscode".
+    # This admits only its observed metadata shape, not new decision evidence.
+    source == "vscode" && meta["cli_version"] == "0.153.4"
+  end
+
   def parse_exec_arguments(input)
     prefix = "const r = await tools.exec_command("
     reject("permission tool input has an invalid prefix") unless input.is_a?(String) && input.start_with?(prefix)
@@ -152,7 +161,8 @@ module CodexLiveApprovalPackager
         session_id.match?(/\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/)
     reject("Codex session metadata IDs differ") unless meta["id"] == session_id
     reject("Codex session did not originate from the supported client") unless
-      meta["originator"] == "Codex Desktop" && meta["source"] == "cli" && meta["thread_source"] == "user"
+      meta["originator"] == "Codex Desktop" && reviewed_session_source?(meta) &&
+        meta["thread_source"] == "user"
     cli_version = meta["cli_version"]
     reject("Codex session CLI version is invalid") unless
       cli_version.is_a?(String) && cli_version.match?(/\A[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?\z/)

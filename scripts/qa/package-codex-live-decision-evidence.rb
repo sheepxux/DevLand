@@ -184,7 +184,8 @@ module CodexLiveDecisionPackager
         session_id.match?(/\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/)
     reject("Codex session metadata IDs differ") unless meta["id"] == session_id
     reject("Codex session did not originate from the supported client") unless
-      meta["originator"] == "Codex Desktop" && %w[cli exec].include?(meta["source"]) &&
+      meta["originator"] == "Codex Desktop" &&
+        CodexLiveApprovalPackager.reviewed_session_source?(meta, allow_exec: true) &&
         meta["thread_source"] == "user"
     cli_version = meta["cli_version"]
     reject("Codex session CLI version is invalid") unless

@@ -487,15 +487,10 @@
 
 /* Hook reporting heartbeat */
 "%@ is running but not reporting to the island." = "%@ 正在运行，但没有向岛汇报。";
-"Open %@ and run %@ to trust the Dev Island hooks." = "打开 %@ 并输入 %@，信任 Dev Island 的 Hook。";
 "Update its hook in Settings › Agents." = "在设置 › Agent 中更新它的 Hook。";
 "Hooks are not reporting" = "Hook 没有汇报";
 
 /* Guided Codex trust */
-"Codex trusts a hook once. Open Codex, run %@, and trust these %lld Dev Island entries:" = "Codex 只需信任一次 Hook。打开 Codex，输入 %@，信任下面这 %lld 条 Dev Island 条目：";
-"Open Codex and copy %@" = "打开 Codex 并复制 %@";
-"Copies %@ to the clipboard and brings Codex to the front" = "把 %@ 复制到剪贴板并把 Codex 切到前台";
-"Codex is not installed on this Mac. %@ is on the clipboard for when it is." = "这台 Mac 上没有安装 Codex。%@ 已在剪贴板里，装好后即可粘贴。";
 "Dev Island entries to trust in Codex" = "需要在 Codex 中信任的 Dev Island 条目";
 
 /* Global decision shortcuts */
@@ -516,6 +511,8 @@
 "Reading Dev Island hooks…" = "正在读取 Dev Island Hook…";
 "Launch command copied" = "已复制启动命令";
 "Copy Codex CLI launch command" = "复制 Codex CLI 启动命令";
+"Authorizing saves trust records for exactly these entries in your Codex configuration (config.toml). Nothing else is changed." = "授权只会在你的 Codex 配置（config.toml）中为这些条目保存信任记录，不会更改其他内容。";
+"Dev Island monitors a different CODEX_HOME than the one its hooks are installed in. Review the hooks manually in that Codex CLI." = "Dev Island 监测的 CODEX_HOME 与安装 Hook 的目录不同。请在该 Codex CLI 中手动审阅 Hook。";
 "Review the exact commands before authorizing Dev Island hooks" = "授权 Dev Island Hook 前先审阅具体命令";
 "Disable hooks" = "停用 Hook";
 "Enable hooks" = "启用 Hook";
@@ -528,11 +525,12 @@
 "Waiting for a local Codex session" = "等待本地 Codex 会话";
 "Monitoring local Codex activity" = "正在监控本地 Codex 活动";
 "Local Codex sessions could not be read" = "无法读取本地 Codex 会话";
-"Send a prompt in Codex. The island reads local session activity; hook authorization is only needed for approvals." = "在 Codex 中发送一条消息，岛便会读取本地会话活动；审批功能才需要授权 Hook。";
-"Review the Dev Island hooks, then send a prompt in Codex." = "审阅 Dev Island 的 Hook，然后在 Codex 中发送一条消息。";
+"Send a prompt in Codex. The island reads local session activity; hook authorization is only needed for approvals." = "在 Codex 中发送一条消息，岛便会读取本地会话活动；只有审批功能才需要授权 Hook。";
+"Review and authorize the Dev Island hooks, then send a prompt in Codex." = "审阅并授权 Dev Island 的 Hook，然后在 Codex 中发送一条消息。";
 "Check session monitoring and approval authorization in Settings › Agents." = "在设置 › Agent 中检查会话监控和审批授权。";
 "For manual setup, use %@ in Codex CLI to trust only Dev Island entries. Otherwise, use Review and authorize hooks below." = "手动设置时，请在 Codex CLI 中输入 %@，仅信任 Dev Island 条目；也可以使用下方的“审阅并授权 Hook”。";
 
 "Response finished" = "本轮回复已结束";
 "Response interrupted" = "本轮回复已中断";
+"Response failed" = "本轮回复失败";
 "Codex finished this response. Session monitoring is working." = "Codex 已结束本轮回复，会话监控正常。";

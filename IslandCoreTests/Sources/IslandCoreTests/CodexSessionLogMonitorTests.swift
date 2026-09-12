@@ -142,6 +142,24 @@ final class CodexSessionLogMonitorTests: XCTestCase {
         XCTAssertEqual(cachedLimited, .unavailable)
     }
 
+    func testChangeDiscoversAnUncachedOldSessionBeforeTheNextSweep() async throws {
+        var limits = CodexSessionLogMonitor.Limits()
+        limits.maximumFiles = 1
+        let old = try rollout("old", date: now.addingTimeInterval(-90 * 86_400), content: metadata("old"))
+        let recent = try rollout("recent", content: metadata("recent"))
+        try FileManager.default.setAttributes([.modificationDate: now.addingTimeInterval(-60)], ofItemAtPath: old.path)
+        try FileManager.default.setAttributes([.modificationDate: now], ofItemAtPath: recent.path)
+        let monitor = CodexSessionLogMonitor(root: root, limits: limits)
+        let initial = await monitor.poll(now: now)
+        XCTAssertTrue(initial.isEmpty)
+
+        try append(event("task_started", at: now.addingTimeInterval(1)), to: old)
+        try FileManager.default.setAttributes([.modificationDate: now.addingTimeInterval(1)], ofItemAtPath: old.path)
+        let resumed = await monitor.poll(now: now.addingTimeInterval(1), forceDiscovery: true)
+        XCTAssertEqual(resumed.map(\.task.id), ["old"], "the only change must discover a resumed task outside the bounded cache")
+        XCTAssertEqual(resumed.first?.task.status, .running)
+    }
+
     func testSymbolicFilesAndDateDirectoriesCannotEscapeRoot() async throws {
         let safe = try rollout("safe", content: metadata("safe") + event("task_started", at: now))
         let outside = temporary.appendingPathComponent("outside", isDirectory: true)
@@ -259,6 +277,54 @@ final class CodexSessionLogMonitorTests: XCTestCase {
         let recoveredStatus = await monitor.status
         XCTAssertEqual(recovered.count, 1)
         XCTAssertEqual(recoveredStatus, .available)
+    }
+
+    func testRecentDayQuickScanCoversTheLocalDateFolder() async throws {
+        // 12:00 UTC is already the next calendar day at UTC+12, and Codex
+        // names the folder by the local date.
+        var limits = CodexSessionLogMonitor.Limits()
+        limits.localTimeZone = TimeZone(secondsFromGMT: 12 * 60 * 60)!
+        let monitor = CodexSessionLogMonitor(root: root, limits: limits)
+        try rollout("old", content: metadata("old") + event("task_started", at: now))
+        let initial = await monitor.poll(now: now)
+        XCTAssertEqual(initial.count, 1, "full discovery")
+
+        let localTomorrowFolderDate = now.addingTimeInterval(12 * 60 * 60)
+        try rollout("fresh", date: localTomorrowFolderDate,
+                    content: metadata("fresh") + event("task_started", at: now.addingTimeInterval(1)))
+        let quick = await monitor.poll(now: now.addingTimeInterval(2))
+        XCTAssertEqual(Set(quick.map(\.task.id)), Set(["old", "fresh"]),
+                       "a session written in the local-date folder must be found without waiting for the next full sweep")
+    }
+
+    func testExhaustedBudgetReportsDeferredReadsUntilCaughtUp() async throws {
+        var limits = CodexSessionLogMonitor.Limits()
+        let content = metadata("one") + event("task_started", at: now)
+        limits.pollBytes = content.utf8.count + 64
+        try rollout("one", content: content)
+        try rollout("two", content: content.replacingOccurrences(of: "one", with: "two"))
+        let monitor = CodexSessionLogMonitor(root: root, limits: limits)
+
+        _ = await monitor.poll(now: now)
+        let deferredAfterFirst = await monitor.hasDeferredReads
+        XCTAssertTrue(deferredAfterFirst, "the second file did not fit and must be retried without waiting for an event")
+
+        _ = await monitor.poll(now: now.addingTimeInterval(1))
+        let deferredAfterSecond = await monitor.hasDeferredReads
+        XCTAssertFalse(deferredAfterSecond, "once every candidate is read the monitor waits for events again")
+
+        let third = await monitor.poll(now: now.addingTimeInterval(2))
+        let deferredWhenIdle = await monitor.hasDeferredReads
+        XCTAssertEqual(third.count, 2)
+        XCTAssertFalse(deferredWhenIdle)
+    }
+
+    func testMissingRootLeavesNoDeferredReads() async throws {
+        try FileManager.default.removeItem(at: root)
+        let monitor = CodexSessionLogMonitor(root: root)
+        _ = await monitor.poll(now: now)
+        let deferred = await monitor.hasDeferredReads
+        XCTAssertFalse(deferred)
     }
 
     @discardableResult

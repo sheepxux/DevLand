@@ -1,9 +1,86 @@
 # IslandCore Interface Contract
 
-> 最后更新: 2026-09-06 | 版本: v6.92.0
+> 最后更新: 2026-09-12 | 版本: v6.95.0
 > 变更流程: 改 TaskStore 公开 API 前更新此文档,commit 用 `[S][contract]` tag。
 
 ---
+
+## Codex 监控合并前评审修正（v6.95.0）
+
+对 v6.92–v6.94 做五视角评审（能耗、安全隐私、正确性、应用与本地化、文档与门禁）后的修正。
+读取内容、上限与合并规则不变；本节只改表现、策略与一致性。
+
+- `CodexSessionPhase`：解析器写入 `currentPhase` 的是稳定标记（`codex.response.finished` /
+  `.interrupted` / `.failed`），不再是英文句子。`CodexSessionMonitoringPresentation.responseStatus(_:phase:)`
+  与 `displayPhase(for:)` 负责本地化；紧凑岛条与通知正文都经此映射，其他 Agent 的阶段原样透传。
+  真实失败显示"本轮回复失败"，用户自己中断显示"本轮回复已中断"。
+- 用户自己中断（`turn_aborted`）不再触发"需要关注"通知：`TaskNotificationKind.decide` 对
+  `CodexSessionPhase.isInterruption` 的 `.failed` 返回 nil；真实失败仍通知。
+- 快速扫描同时覆盖本地日历与 UTC 日历的最近三日目录（实测 Codex 以本地日期命名
+  `YYYY/MM/DD`）；`Limits.localTimeZone` 仅供测试注入。
+- 历史持久化去重：Codex 快照只在 id/标题/状态/阶段/等待消息/创建时间/目录变化时写 SQLite，
+  仅 `updatedAt` 变化不重写；Clear History 与退出时重置该签名。监控循环以 `.utility` 优先级
+  运行，状态值不变时不写 `@Observable` 属性。关闭监控不再留下已结束的占位 task。
+- `CodexHookAuthorization.review()` 在 `CODEX_HOME` 与 Hook 安装目录不一致时抛出新的
+  `CodexHookAuthorizationError.unsupportedHome`，App 给出独立文案而非"未安装 Codex"。
+- 授权表单：新增一句说明将在 `config.toml` 中仅为这些条目保存信任记录；Cancel 绑定 Esc；
+  标题带 header trait；签名 CLI 在 `.task` 中后台定位一次，仅在定位到时才显示"复制启动命令"。
+- Welcome 第四步 Codex 信任指引改为"审阅并授权"；删除 5 个已无引用的旧引导文案键。
+- `LocalLiveReadinessProbe.verifiedCodexVersion` 改为 `0.153.4`，与授权接受的版本一致。
+- 时间戳解析：两个静态 `ISO8601DateFormatter`，小数位数不是 3 位时先归一化再解析。
+- `Package.resolved` 恢复为 CI 工具链解析结果（含 CSQLite / SQLCipher.swift 钉子、不含
+  swift-configuration）；本机 Swift 6.3.2 的 `swift package resolve` 不改写该文件。
+- 门禁：授权写入端遵守与只读探针相同的进程/日志/shim 禁令；解析器不含英文短语；岛条与通知
+  经本地化映射；readiness 与授权版本钉一致；对应回归测试就位。
+
+## 持续打开的 Codex 日志写入通知（v6.94.0）
+
+真机发现 Codex 长期保持 rollout writer 打开。目录级 FSEvents 与 FileEvents 两种模式
+都可能仅在文件关闭时交付事件；仅依赖它们会让新一轮运行继续显示为上一轮已结束。
+隔离持久 writer 的两次 append/fsync 及真实目录 metadata 差分均已复现此问题。
+
+- 原单条 FSEvents 订阅保留，用于目录/候选发现；不读取事件携带的路径。
+- `CodexSessionLogMonitor.fileWatchTargets` 仅传递已经有界发现的候选相对路径及 device/inode。
+  `CodexSessionLogWatcher.updateFiles(_:)` 最多建立 64 个活跃候选订阅：从根目录逐级
+  `openat` + `O_NOFOLLOW`，最终 `O_EVTONLY` + `fstat` 核对普通文件与身份，不读取文件内容。
+- 每个候选由 `DispatchSourceFileSystemObject` 监听 write/extend/attrib/delete/rename/revoke。
+  同一身份复用订阅；先取消已移除或身份变化的旧订阅，再验证并建立新订阅。旧描述符由
+  自己的 cancel handler 异步关闭，排空前可能短暂与新描述符并存。关闭监控或退出取消所有
+  订阅。失败明确降级，不能声称持续监控正常。
+- FSEvents、文件通知和重新订阅信号共享一次性合并窗口，首次变化后最多等待一秒，不因
+  后续写入无限延期；没有新事件时不再设置定时器。新的文件订阅完成后补一次读取，以覆盖
+  前一次读取与订阅建立之间的写入。读取/遍历上限与原状态合并规则保持不变。
+- 此上限仍只覆盖最多 64 个候选；超过范围的会话不承诺实时跟踪。性能验收不能把
+  FSEvents 零事件当成无日志活动，须同时核对只读 metadata 前后差分。
+
+## Codex 会话监控事件驱动化（v6.93.0）
+
+v6.92 的只读监控以 1 秒 / 3 秒定时轮询驱动，违反“稳态不设定时器、不轮询”的能耗原则。
+本节把读取时机改为事件驱动；读取内容、上限、解析与合并规则沿用 v6.92，不变。
+
+- `CodexSessionLogWatcher`：对 `~/.codex/sessions`（或 `CODEX_HOME/sessions`）建立唯一一条
+  FSEvents 订阅，只用目录级事件与标志位，不请求、不读取、不记录任何事件路径；内核按
+  `coalescingLatency = 1.0` 秒合并突发，监听器自身不设周期性定时器。根目录尚不存在时改盯其父目录
+  `~/.codex`，根出现后订阅自动移到根上；父目录也不存在时不向上盯任何目录（无 Codex 的
+  机器不产生监听唤醒），等待 `refresh()`。根被删除或改名产生 root-changed 事件并重建订阅。
+  订阅目标按目录 device/inode 绑定，不把不存在的路径当成有效订阅；`refresh()` 返回当前
+  可用性，失败后允许后续显式刷新恢复，但不自行重试。重订阅完成后补发一次变化信号，覆盖
+  旧订阅结束与新订阅建立之间的写入。
+- `CodexSessionChangeSignal`：actor，把突发事件折叠成一次唤醒，并让监控循环在“有变化”
+  或“到期”二者先到时醒来；取消立即释放等待者。
+- `CodexSessionMonitorSchedule`：无观察时不设截止；否则取最早到期时间（运行中 30 分钟、
+  已结束 2 小时，与监控器过滤共用常量），且不早于 `minimumDelay = 1.0` 秒。上一轮因 2 MiB
+  预算未读完（`CodexSessionLogMonitor.hasDeferredReads`）时安排 1 秒后的一次补读，而非等事件。
+- `TaskStore` 监控循环：`poll()` → `watcher.refresh()` → 发布 → `signal.wait(until:)`；
+  FSEvents 拒绝订阅时状态从 `.available` 降为 `.unavailable`，不回退为定时器。Codex Hook
+  快照到达且监控状态为 `.notFound` 时通过 `codexSessionMonitorNudge` 唤醒一次，让刚安装的
+  Codex 立即被发现。关闭/切换/退出仍走原有代际与取消栅栏。
+  `.changed` 唤醒后的读取强制有界全目录发现，避免十秒缓存漏掉旧目录内重开的任务；到期及
+  预算补读仍可复用发现缓存。真实审批取消或超时时立即重新合并已读取的终态，再由原监控
+  owner 完成历史写入，不等待下一次磁盘变化。
+- 门禁：`verify-security-invariants.sh` 断言 TaskStore 不再含周期性 `Task.sleep` 轮询、
+  监听器不含路径读取/日志/网络/授权调用；`verify-performance-analysis.sh` 固定 1 秒合并、
+  30 分钟 / 2 小时保留与 1 秒最小间隔及对应回归测试。
 
 ## Codex 独立会话监控与显式授权（v6.92.0）
 
@@ -16,7 +93,9 @@
 - 新 `CodexSessionLogMonitor` 只读 `sessions/YYYY/MM/DD/rollout-*.jsonl` 的近期活动，包括旧会话续聊；发现、候选数、
   读入字节、单行、内存与状态保留均有界。跳过链接、非普通文件、子代理与供应商后台会话，
   按源事件时间而非扫描时间更新任务，允许取消，退出时必须结束监控任务。最多 64 文件 / 2 MiB
-  内容每轮；每 10 秒有界扫描最多 8,192 目录项，平时只查最近三日与已追踪文件；超限报告降级。
+  内容每轮；文件系统变化或距上次全量发现 ≥10 秒时做有界全量扫描（最多 8,192 目录项），
+  其余补读只查最近三日与已追踪文件；超限报告降级。读取时机自 v6.93 起由文件系统事件与
+  到期截止驱动，见上节。
 - 只提取会话 ID、轮次 ID、工作目录、受限标题和生命周期状态；不保存/记录原始对话或工具输出，
   不读取认证文件，不调用网络或续跑用户任务。新监控是独立的数据源，原有元数据健康探针
   `LocalAgentActivityProbe` 继续保持不读文件内容。
@@ -2773,7 +2852,7 @@ public struct HermeticLocalListenerReadinessHarness: Sendable {
   前半段写 marker 的命令仍会先执行，随后才 exit 2。Release 因此不能把“最终执行时自然报
   syntax error”当作无副作用保护；Ruby 虽会先整体编译，也进入同一预检闭包。
 - `verify-repository-script-syntax.rb` 必须递归覆盖 `scripts/` 下全部 `.sh` / `.rb`。当前闭包是
-  54 个 Bash 与 27 个 Ruby（包含验证器和夹具自身）；新增同扩展脚本必须自动进入，不维护
+  54 个 Bash 与 28 个 Ruby（包含验证器和夹具自身）；新增同扩展脚本必须自动进入，不维护
   容易漏项的手写列表。脚本总数最多 256，树最多 4,096 项，单文件最多 1 MiB。
 - `scripts/` 全目录树拒绝 symlink、特殊文件、错误 owner 与 group/other 可写目录；脚本使用
   `O_NOFOLLOW|O_NONBLOCK` descriptor，只接受当前用户、普通、单硬链接、不可 group/other 写、
@@ -2794,7 +2873,7 @@ public struct HermeticLocalListenerReadinessHarness: Sendable {
 
 ## Swift 脚本 stdin-only Parse 闭包（v6.28.0 加固）
 
-- `scripts/` 全量闭包必须同时包含 `.swift`，当前总数为 54 Bash + 27 Ruby + 9 Swift。
+- `scripts/` 全量闭包必须同时包含 `.swift`，当前总数为 54 Bash + 28 Ruby + 9 Swift。
   `scripts/release/generate-sbom.swift` 会在 CI/tag 真实执行，其他品牌、菜单图标、声音与显示
   会话脚本也不得留在发布前语法盲区。
 - Swift 文件继续使用同一 descriptor owner/type/mode/nlink/size/UTF-8/NUL 与目录稳定性边界；
@@ -3053,3 +3132,6 @@ public struct HermeticLocalListenerReadinessHarness: Sendable {
 | 2026-09-05 | v6.91.0 | **本地 Agent Hook 心跳**:`LocalAgentActivityProbe` 只读 Codex/Claude Code 会话文件的类型与修改时间（≤8,192 项、跳过树内链接、根链接解析一次），`TaskStore` 记录每 source 最后 Hook 事件时间并按需（展开/菜单/Settings）在后台推导 reporting/not-reporting/idle/unknown；活动新鲜但无事件且无在岛会话即 not-reporting，空闲岛、状态菜单与 Settings 显示固定提示（Codex 指向 `/hooks`）；无定时器、无路径、无新枚举值 | `[S][contract] feat(core): notice when a connected Agent stops reporting` |
 | 2026-09-05 | v6.90.0 | **托管本地 Hook 启动器**:所有命令式 Hook 行固定为 `"${HOME}/…/island-app/bin/dev-island-hook" --route /hooks/<source> --event <Event> --port 7824 \|\| true`；传输细节全部移入注册表渲染的静态 `sh` 启动器（`0700`、单链接、字节精确、unsafe 不替换），生产监听器在授权轮换后非致命自愈；`/hooks/<source>` 继续作为 marker，JSON 安装先清除全部事件下的管理条目；Codex 只需在 `/hooks` 重新信任一次，此后 Dev Island 升级不再改动定义 | `[S][contract] feat(core): point every Hook at a fixed managed launcher` |
 | 2026-09-02 | v6.89.0 | **Welcome 第四步「点亮你的岛」**:四页共用同一固定几何；第四页先以 `localHookServiceStatus == .listening` 为门，再按已连接 Agent 给出 verbatim 命令（`claude -p "say hi"` / `codex exec "say hi"` / Codex `/hooks` 两段指引 / Cursor）与复制按钮；`OnboardingLiveSignalState` 只读 `TaskStore.tasks`、前向锁存 `.waiting → .seen → .completed` 且不因 SessionEnd 回退；不接管 `onTaskTransition`、无 `Task.detached`、`LocalAgentConfigurationExecutor.run(` 仍精确两处 | `[C][contract] feat(app): light up the island at the end of the Welcome Tour` |
+| 2026-09-06 | v6.92.0 | **Codex 独立会话监控与显式授权**:只读 `sessions/YYYY/MM/DD/rollout-*.jsonl` 监控与 Hook 分离、默认开启；岛内审阅精确 Hook 定义后经签名 CLI App Server `hooks/list`/`config/read`/`config/batchWrite` 写 `trusted_hash` 并复查 | `[S][contract] Separate Codex monitoring from reviewed hook authorization` |
+| 2026-09-11 | v6.93.0 | **Codex 会话监控事件驱动化**:`CodexSessionLogWatcher` 单条 FSEvents 目录级订阅（1 秒合并、不读路径、根缺失盯父目录）、`CodexSessionChangeSignal` 折叠唤醒、`CodexSessionMonitorSchedule` 仅按到期/补读设截止；TaskStore 移除 1 秒 / 3 秒轮询，Hook 快照可唤醒 `.notFound` 监控 | `[S][contract] perf(core): drive Codex session monitoring by filesystem events` |
+| 2026-09-12 | v6.95.0 | **Codex 监控合并前评审修正**:`CodexSessionPhase` 稳定标记替代英文短语、岛条/通知本地化映射、用户中断不通知、快速扫描覆盖本地日期目录、历史写入去重、`.utility` 监控循环、`unsupportedHome` 错误、授权表单说明/Esc/后台定位 CLI、readiness 版本钉 `0.153.4`、`Package.resolved` 恢复 CI 解析 | `[S][contract] fix(codex): apply the pre-merge review to Codex monitoring` |

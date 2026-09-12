@@ -10,8 +10,9 @@ public enum CodexSessionMonitorStatus: Equatable, Sendable {
 
 /// Read-only, bounded discovery of recent desktop/CLI sessions. Hooks remain
 /// the authority for approval requests; a transcript never creates an action.
-/// The caller owns polling cadence and cancellation. No file handles survive
-/// a poll, so replacing, archiving or deleting a rollout removes its snapshot.
+/// The caller owns read timing and cancellation. The reader closes all handles
+/// after a pass; the separate watcher can retain event-only descriptors for
+/// the bounded candidates below. Removed/replaced rollouts lose their snapshot.
 public actor CodexSessionLogMonitor {
     public static var defaultRoot: URL {
         let configured = ProcessInfo.processInfo.environment["CODEX_HOME"]
@@ -23,6 +24,14 @@ public actor CodexSessionLogMonitor {
     }
 
     public private(set) var status: CodexSessionMonitorStatus = .notFound
+    /// True when the last pass left bytes unread because the poll budget ran
+    /// out. The caller then schedules one prompt follow-up pass instead of
+    /// waiting for the next filesystem event.
+    public private(set) var hasDeferredReads = false
+    /// Only already-discovered candidates can receive event-only file watches.
+    /// This carries identities, never log contents, and stays within the same
+    /// file-count bound as reading.
+    private(set) var fileWatchTargets: [CodexSessionLogWatcher.FileTarget] = []
 
     private let root: URL
     private let limits: Limits
@@ -50,13 +59,18 @@ public actor CodexSessionLogMonitor {
         var tailBytes = 512 * 1_024
         var lineBytes = 256 * 1_024
         var pollBytes = 2 * 1_024 * 1_024
+        /// Codex names `YYYY/MM/DD` by the machine's local date; the quick
+        /// scan therefore covers the local and the UTC calendar.
+        var localTimeZone = TimeZone.current
     }
 
     /// A stable snapshot, not a stream of new events: timestamps always come
     /// from Codex. Old active tasks expire after 30 minutes without an event;
     /// ended turns are retained for two hours and never resurrected by mtime.
-    func poll(now: Date = .now) -> [CodexSessionObservation] {
+    func poll(now: Date = .now, forceDiscovery: Bool = false) -> [CodexSessionObservation] {
         guard !Task.isCancelled else { return [] }
+        hasDeferredReads = false
+        fileWatchTargets = []
         guard root.isFileURL, root.path.hasPrefix("/") else {
             status = .unavailable
             files.removeAll()
@@ -75,7 +89,14 @@ public actor CodexSessionLogMonitor {
         defer { Darwin.close(rootFD) }
         status = .available
 
-        let candidates = discover(rootFD: rootFD, now: now)
+        let candidates = discover(rootFD: rootFD, now: now, forceDiscovery: forceDiscovery)
+        fileWatchTargets = candidates.map {
+            CodexSessionLogWatcher.FileTarget(
+                components: $0.folder + [$0.name],
+                device: $0.metadata.device,
+                inode: $0.metadata.inode
+            )
+        }
         let names = Set(candidates.map(\.key))
         files = files.filter { names.contains($0.key) }
         var remainingBytes = limits.pollBytes
@@ -85,6 +106,9 @@ public actor CodexSessionLogMonitor {
                 if let state = try read(candidate, rootFD: rootFD, now: now, budget: &remainingBytes) {
                     files[candidate.key] = state
                     candidateCache[candidate.key] = Candidate(folder: candidate.folder, name: candidate.name, metadata: state.metadata)
+                    if state.offset < state.metadata.size { hasDeferredReads = true }
+                } else {
+                    hasDeferredReads = true
                 }
             } catch {
                 // Never preserve a live-looking task after its file becomes
@@ -100,7 +124,7 @@ public actor CodexSessionLogMonitor {
             guard let observation = files[key]?.parser.observation,
                   observation.task.status != .waiting else { continue }
             let age = now.timeIntervalSince(observation.task.updatedAt)
-            let maximumAge: TimeInterval = observation.task.status == .running ? 30 * 60 : 2 * 60 * 60
+            let maximumAge = CodexSessionMonitorSchedule.retention(for: observation.task.status)
             // A malformed far-future timestamp must not create an immortal row.
             guard age >= -5 * 60, age <= maximumAge else { continue }
             if let existing = observations[observation.task.id],
@@ -145,15 +169,15 @@ public actor CodexSessionLogMonitor {
         var droppingLine = false
     }
 
-    /// Refresh recent dates on each poll and perform a bounded discovery of
-    /// the date tree every ten seconds. Codex keeps a resumed conversation in
-    /// its original creation-date folder, so recent directories alone miss it.
+    /// Filesystem changes force bounded discovery of the whole date tree:
+    /// a resumed conversation still lives in its original date folder. Only
+    /// expiry/budget follow-ups can reuse discovery for up to ten seconds.
     /// Only YYYY/MM/DD paths are traversed; no arbitrary recursive home scan.
-    private func discover(rootFD: Int32, now: Date) -> [Candidate] {
+    private func discover(rootFD: Int32, now: Date, forceDiscovery: Bool) -> [Candidate] {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0)!
         var entries = 0
-        let fullDiscovery = lastFullDiscovery.map { now.timeIntervalSince($0) >= 10 || now < $0 } ?? true
+        let fullDiscovery = forceDiscovery || (lastFullDiscovery.map { now.timeIntervalSince($0) >= 10 || now < $0 } ?? true)
         var discovered: [Candidate] = []
         if fullDiscovery {
             for year in directoryNames(rootFD: rootFD, components: [], digits: 4, range: 1...9_999, entries: &entries) {
@@ -171,10 +195,18 @@ public actor CodexSessionLogMonitor {
             lastFullDiscovery = now
             fullDiscoveryUnavailable = status == .unavailable
         } else {
-            for daysAgo in 0..<3 {
-                guard let date = calendar.date(byAdding: .day, value: -daysAgo, to: now) else { continue }
-                let parts = calendar.dateComponents([.year, .month, .day], from: date)
-                let folder = [String(format: "%04d", parts.year!), String(format: "%02d", parts.month!), String(format: "%02d", parts.day!)]
+            var local = calendar
+            local.timeZone = limits.localTimeZone
+            var folders: [[String]] = []
+            for recentCalendar in [local, calendar] {
+                for daysAgo in 0..<3 {
+                    guard let date = recentCalendar.date(byAdding: .day, value: -daysAgo, to: now) else { continue }
+                    let parts = recentCalendar.dateComponents([.year, .month, .day], from: date)
+                    let folder = [String(format: "%04d", parts.year!), String(format: "%02d", parts.month!), String(format: "%02d", parts.day!)]
+                    if !folders.contains(folder) { folders.append(folder) }
+                }
+            }
+            for folder in folders {
                 candidateCache = candidateCache.filter { $0.value.folder != folder }
                 scanDirectory(rootFD: rootFD, folder: folder, entries: &entries, candidates: &discovered)
             }

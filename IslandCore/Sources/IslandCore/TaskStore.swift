@@ -215,8 +215,14 @@ public final class TaskStore {
     private let permitsSessionMonitoring: Bool
     private var codexSessionMonitorTask: Task<Void, Never>?
     private var codexMonitorGeneration: UInt64 = 0
+    /// Wakes the current monitor generation without a filesystem event, e.g.
+    /// when a Codex Hook proves Codex exists on a Mac whose sessions root was
+    /// missing at start-up.
+    private var codexSessionMonitorNudge: (@Sendable () -> Void)?
     private var codexHookSnapshot: [AgentTask] = []
     private var codexSessionObservations: [CodexSessionObservation] = []
+    private var codexSessionPublicationPending = false
+    private var lastPersistedCodexRows: [CodexPersistedRow] = []
     private var codexEndedSessions: [String: Date] = [:]
     private static let codexMonitoringPreference = "island.codex.sessionMonitoring"
     private var actionContinuations: [
@@ -681,9 +687,12 @@ public final class TaskStore {
         let sessionMonitor = codexSessionMonitorTask
         codexMonitorGeneration &+= 1
         codexSessionMonitorTask = nil
+        codexSessionMonitorNudge = nil
         sessionMonitor?.cancel()
         codexSessionMonitorStatus = .stopped
         codexSessionObservations = []
+        codexSessionPublicationPending = false
+        lastPersistedCodexRows = []
         codexHookSnapshot = []
         codexEndedSessions = [:]
         localHookServer = nil
@@ -789,6 +798,7 @@ public final class TaskStore {
     /// transaction fails, allowing Settings to present a recoverable error.
     @discardableResult
     public func clearStoredTaskHistory() async -> Bool {
+        lastPersistedCodexRows = []
         guard let store = sqliteStore else {
             IslandLogger.storage.error("Couldn't clear history: storage unavailable")
             return false
@@ -998,6 +1008,7 @@ public final class TaskStore {
     /// connector (event-sourced, so the connector state is authoritative).
     internal func applyLocalSnapshot(source: String, _ snapshot: [AgentTask]) async {
         if source == "codex" {
+            if codexSessionMonitorStatus == .notFound { codexSessionMonitorNudge?() }
             let previous = Dictionary(codexHookSnapshot.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
             codexHookSnapshot = StateReconciler.normalizedSnapshot(snapshot, source: source).map { incoming in
                 // Another session's Hook can carry the connector's old copy
@@ -1031,11 +1042,17 @@ public final class TaskStore {
         let preceding = codexSessionMonitorTask
         preceding?.cancel()
         codexSessionObservations = []
+        codexSessionPublicationPending = false
         codexSessionMonitorStatus = .stopped
         // Remove passive cards synchronously so toggling off cannot leave a
-        // card on screen until a later filesystem poll or Hook arrives.
+        // card on screen until a later filesystem event or Hook arrives.
         setTasks(tasks.filter { $0.source != "codex" } + mergedCodexSessions())
         guard permitsSessionMonitoring else { return }
+        guard enabled else {
+            codexSessionMonitorTask = nil
+            codexSessionMonitorNudge = nil
+            return
+        }
         scheduleCodexSessionMonitor(after: preceding, generation: generation)
     }
 
@@ -1046,38 +1063,67 @@ public final class TaskStore {
         scheduleCodexSessionMonitor(after: nil, generation: codexMonitorGeneration)
     }
 
-    /// One owner joins the previous generation before polling. Cancellation
+    /// One owner joins the previous generation before reading. Cancellation
     /// and generation checks fence every publication across actor hops.
+    ///
+    /// The loop is event-driven: a filesystem change under the sessions root
+    /// or the expiry of a visible row is the only reason to read again. An
+    /// idle Codex therefore costs no wakeups, and a machine without Codex
+    /// sleeps until the sessions directory appears.
     private func scheduleCodexSessionMonitor(
         after preceding: Task<Void, Never>?,
         generation: UInt64
     ) {
-        codexSessionMonitorTask = Task { @MainActor [weak self] in
+        // Background I/O at utility QoS; publication still hops to the main actor.
+        codexSessionMonitorTask = Task(priority: .utility) { @MainActor [weak self] in
             await preceding?.value
             guard !Task.isCancelled,
                   self?.codexMonitorGeneration == generation,
                   self?.codexSessionMonitoringEnabled == true,
                   self?.shutdownRequested == false else { return }
             let monitor = CodexSessionLogMonitor()
+            let signal = CodexSessionChangeSignal()
+            let nudge: @Sendable () -> Void = { Task { await signal.signal() } }
+            let watcher = CodexSessionLogWatcher(root: CodexSessionLogMonitor.defaultRoot, onChange: nudge)
+            watcher.start()
+            self?.codexSessionMonitorNudge = nudge
+            defer {
+                watcher.stop()
+                if let owner = self, owner.codexMonitorGeneration == generation {
+                    owner.codexSessionMonitorNudge = nil
+                }
+            }
             let monitoringStartedAt = Date.now
             var initial = true
+            var forceDiscovery = false
             while !Task.isCancelled {
-                let observations = await monitor.poll()
-                let status = await monitor.status
+                let observations = await monitor.poll(forceDiscovery: forceDiscovery)
+                var status = await monitor.status
+                let deferred = await monitor.hasDeferredReads
+                let fileTargets = await monitor.fileWatchTargets
                 guard !Task.isCancelled,
                       let owner = self,
                       owner.codexMonitorGeneration == generation,
                       !owner.shutdownRequested else { return }
-                owner.codexSessionMonitorStatus = status
+                // A root that appeared since the last pass moves the
+                // subscription from the parent directory onto the root.
+                let watching = watcher.refresh()
+                let filesWatching = watcher.updateFiles(fileTargets)
+                // Without change notifications the snapshot would silently
+                // age; say so instead of pretending to monitor.
+                if (!watching || !filesWatching), status == .available { status = .unavailable }
+                if owner.codexSessionMonitorStatus != status { owner.codexSessionMonitorStatus = status }
                 await owner.applyCodexSessionObservations(
                     observations, isInitialSnapshot: initial,
                     restoringBefore: monitoringStartedAt
                 )
                 initial = false
-                let active = observations.contains { $0.task.status == .running }
-                do {
-                    try await Task.sleep(for: .seconds(active ? 1 : 3))
-                } catch { return }
+                let deadline = CodexSessionMonitorSchedule.nextDeadline(
+                    for: observations, hasDeferredReads: deferred, now: .now
+                )
+                let wake = await signal.wait(until: deadline)
+                if wake == .cancelled { return }
+                forceDiscovery = wake == .changed
             }
         }
     }
@@ -1090,10 +1136,11 @@ public final class TaskStore {
         guard !shutdownRequested, codexSessionMonitoringEnabled else { return }
         let changed = observations != codexSessionObservations
         codexSessionObservations = observations
-        // A pending decision may have hidden a terminal observation in the
-        // previous poll. After cancellation/native fallback, even identical
-        // log bytes must be reconciled against the now-unblocked projection.
-        guard changed || mergedCodexSessions() != tasks.filter({ $0.source == "codex" }) else { return }
+        // Ending a pending decision can publish a cached terminal projection
+        // synchronously. Its history still needs this owner's serialized write,
+        // even when the next read returns exactly the same log bytes.
+        guard changed || codexSessionPublicationPending ||
+              mergedCodexSessions() != tasks.filter({ $0.source == "codex" }) else { return }
         // Bounded discovery can restore an old conversation on a later poll.
         // Silence by source time as well as first snapshot, so scan budgets
         // never turn historical responses into new completion notifications.
@@ -1113,17 +1160,37 @@ public final class TaskStore {
         )
     }
 
+    /// What history needs from a Codex row. `updatedAt` alone moves with every
+    /// streamed item, so it never triggers a rewrite on its own; the terminal
+    /// transition always carries the final timestamp.
+    private struct CodexPersistedRow: Equatable {
+        let id: String
+        let title: String
+        let status: TaskStatus
+        let phase: String?
+        let waitingMessage: String?
+        let createdAt: Date
+        let url: String
+    }
+
     private func publishCodexSessions(
         suppressingTransitionsFor identities: Set<TaskIdentity> = []
     ) async {
         let snapshot = mergedCodexSessions()
+        codexSessionPublicationPending = false
         setTasks(
             tasks.filter { $0.source != "codex" } + snapshot,
             suppressingTransitionsFor: identities
         )
         guard let store = sqliteStore else { return }
+        let rows = snapshot.map {
+            CodexPersistedRow(id: $0.id, title: $0.title, status: $0.status, phase: $0.currentPhase,
+                              waitingMessage: $0.waitingMessage, createdAt: $0.createdAt, url: $0.taskURL)
+        }
+        guard rows != lastPersistedCodexRows else { return }
         do {
             try await store.insertOrReplace(tasks: snapshot)
+            lastPersistedCodexRows = rows
         } catch {
             IslandLogger.storage.error("Couldn't persist Codex session snapshot")
         }
@@ -1235,6 +1302,16 @@ public final class TaskStore {
 
         if restoreSession, let request {
             restoreSessionAfterDecision(request)
+        } else if request?.source == "codex", codexSessionMonitoringEnabled, !shutdownRequested {
+            // Cancellation/native fallback removes the pending-request shield.
+            // Reconcile already-read terminal state now: event-driven monitoring
+            // may receive no further filesystem change before the row expires.
+            let snapshot = mergedCodexSessions()
+            if snapshot != tasks.filter({ $0.source == "codex" }) {
+                setTasks(tasks.filter { $0.source != "codex" } + snapshot)
+                codexSessionPublicationPending = true
+                codexSessionMonitorNudge?()
+            }
         }
         return true
     }

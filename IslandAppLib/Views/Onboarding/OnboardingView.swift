@@ -825,7 +825,7 @@ struct OnboardingView: View {
                     }
 
                 case .codexTrust:
-                    liveSignalInstruction("Review the Dev Island hooks, then send a prompt in Codex.")
+                    liveSignalInstruction("Review and authorize the Dev Island hooks, then send a prompt in Codex.")
                     Button {
                         showsCodexAuthorization = true
                     } label: {

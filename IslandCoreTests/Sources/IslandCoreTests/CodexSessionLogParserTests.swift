@@ -32,6 +32,57 @@ final class CodexSessionLogParserTests: XCTestCase {
         return line("event_msg", at: offset, payload)
     }
 
+    func testTerminalEventsStoreStablePhaseMarkersNotEnglishCopy() {
+        var parser = CodexSessionLogParser()
+        parser.consume(line: metadata())
+        parser.consume(line: event("task_started", at: 1))
+        parser.consume(line: event("turn_aborted", at: 2))
+        XCTAssertEqual(parser.observation?.task.status, .failed)
+        XCTAssertEqual(parser.observation?.task.currentPhase, CodexSessionPhase.interrupted)
+        XCTAssertTrue(CodexSessionPhase.isInterruption(parser.observation?.task.currentPhase))
+
+        parser.consume(line: event("task_started", turn: "turn-2", at: 3))
+        parser.consume(line: event("task_failed", turn: "turn-2", at: 4))
+        XCTAssertEqual(parser.observation?.task.currentPhase, CodexSessionPhase.responseFailed)
+        XCTAssertFalse(CodexSessionPhase.isInterruption(parser.observation?.task.currentPhase))
+
+        parser.consume(line: event("task_started", turn: "turn-3", at: 5))
+        parser.consume(line: event("task_complete", turn: "turn-3", at: 6))
+        XCTAssertEqual(parser.observation?.task.currentPhase, CodexSessionPhase.responseFinished)
+        for marker in [CodexSessionPhase.interrupted, CodexSessionPhase.responseFailed, CodexSessionPhase.responseFinished] {
+            XCTAssertFalse(marker.contains(" "), "markers are keys, not sentences: \(marker)")
+        }
+    }
+
+    func testTimestampsWithAnyFractionalDigitCountParse() {
+        func record(_ timestamp: String, type: String = "event_msg", payload: [String: Any]) -> Data {
+            try! JSONSerialization.data(withJSONObject: ["type": type, "timestamp": timestamp, "payload": payload])
+        }
+        var parser = CodexSessionLogParser()
+        parser.consume(line: record("2026-09-05T20:00:00.000Z", type: "session_meta", payload: [
+            "id": "session-1", "cwd": "/project", "source": "vscode", "originator": "Codex Desktop"
+        ]))
+        let expectations: [(String, TimeInterval)] = [
+            ("2026-09-05T20:00:01Z", 1),
+            ("2026-09-05T20:00:02.5Z", 2.5),
+            ("2026-09-05T20:00:03.250Z", 3.25),
+            ("2026-09-05T20:00:04.123456Z", 4.123),
+            ("2026-09-05T21:00:05.75+01:00", 5.75),
+        ]
+        let base = Date(timeIntervalSince1970: 1_788_638_400) // 2026-09-05 20:00:00 UTC
+        var turn = 0
+        for (timestamp, offset) in expectations {
+            turn += 1
+            parser.consume(line: record(timestamp, payload: ["type": "task_started", "turn_id": "turn-\(turn)"]))
+            let observed = parser.observation?.task.updatedAt.timeIntervalSince(base)
+            XCTAssertNotNil(observed, timestamp)
+            XCTAssertEqual(observed ?? -1, offset, accuracy: 0.002, timestamp)
+        }
+        XCTAssertNil(CodexSessionLogParser.normalizedFractionalSeconds("2026-09-05T20:00:00.abcZ"))
+        XCTAssertNil(CodexSessionLogParser.normalizedFractionalSeconds("2026-09-05T20:00:00.123Z"), "three digits need no rewrite")
+        XCTAssertEqual(CodexSessionLogParser.normalizedFractionalSeconds("2026-09-05T20:00:00.1Z"), "2026-09-05T20:00:00.100Z")
+    }
+
     func testMetadataAndContextDoNotInventRunningWork() {
         var parser = CodexSessionLogParser()
         parser.consume(line: metadata())
@@ -58,7 +109,7 @@ final class CodexSessionLogParserTests: XCTestCase {
         let finished = try XCTUnwrap(parser.observation)
         XCTAssertEqual(finished.turnID, "turn-1")
         XCTAssertEqual(finished.task.status, .completed)
-        XCTAssertEqual(finished.task.currentPhase, "Response finished")
+        XCTAssertEqual(finished.task.currentPhase, CodexSessionPhase.responseFinished)
         XCTAssertEqual(finished.task.updatedAt, baseDate.addingTimeInterval(20))
         XCTAssertNil(finished.task.waitingMessage)
         XCTAssertNil(finished.task.jumpContext)
@@ -149,7 +200,7 @@ final class CodexSessionLogParserTests: XCTestCase {
         parser.consume(line: event("task_started", at: 1))
         parser.consume(line: event("turn_aborted", at: 2, extra: ["reason": "raw private reason"]))
         XCTAssertEqual(parser.observation?.task.status, .failed)
-        XCTAssertEqual(parser.observation?.task.currentPhase, "Interrupted")
+        XCTAssertEqual(parser.observation?.task.currentPhase, CodexSessionPhase.interrupted)
         parser.consume(line: event("task_complete", at: 3))
         XCTAssertEqual(parser.observation?.task.status, .failed)
         XCTAssertEqual(parser.observation?.task.updatedAt, baseDate.addingTimeInterval(2))
@@ -231,7 +282,7 @@ final class CodexSessionLogParserTests: XCTestCase {
         XCTAssertNil(parser.observation?.task.waitingMessage)
         parser.consume(line: event("task_failed", at: 3, extra: ["error": "private raw error"]))
         XCTAssertEqual(parser.observation?.task.status, .failed)
-        XCTAssertEqual(parser.observation?.task.currentPhase, "Response failed")
+        XCTAssertEqual(parser.observation?.task.currentPhase, CodexSessionPhase.responseFailed)
     }
 
     func testItemActivityRefreshesActualTimeButCannotReopenFinishedTurn() {

@@ -134,7 +134,7 @@ final class CodexSessionReconcilerTests: XCTestCase {
     }
 
     @MainActor
-    func testCancelledApprovalReleasesCachedTerminalObservationOnNextPoll() async {
+    func testCancelledApprovalReleasesCachedTerminalObservationWithoutAnotherPoll() async {
         let store = TaskStore.mock(tasks: [])
         await store.applyLocalSnapshot(source: "codex", [task()])
         let request = AgentActionRequest(source: "codex", sessionId: "session", kind: .permission,
@@ -147,10 +147,36 @@ final class CodexSessionReconcilerTests: XCTestCase {
         await store.applyCodexSessionObservations(observations)
         XCTAssertEqual(store.tasks.first?.status, .waiting)
         store.cancelActionRequests(for: request.taskIdentity)
+        XCTAssertEqual(store.tasks.first?.status, .failed,
+                       "cancellation must release the cached terminal state without another filesystem event")
         let result = await decision.value
         XCTAssertNil(result)
-        await store.applyCodexSessionObservations(observations)
         XCTAssertEqual(store.tasks.first?.status, .failed)
+        _ = await store.shutdown()
+    }
+
+    @MainActor
+    func testTimedOutApprovalReleasesCachedTerminalObservationWithoutAnotherPoll() async {
+        let store = TaskStore.mock(tasks: [])
+        await store.applyLocalSnapshot(source: "codex", [task()])
+        let request = AgentActionRequest(source: "codex", sessionId: "session", kind: .permission,
+                                         title: "Allow command", message: "Synthetic request", timeout: 2)
+        let decision = Task { @MainActor in await store.awaitActionDecision(for: request) }
+        for _ in 0..<100 where store.pendingActionRequests.isEmpty { await Task.yield() }
+        XCTAssertEqual(store.pendingActionRequests.count, 1)
+        var ended = task(status: .completed)
+        ended.updatedAt = Date.now.addingTimeInterval(1)
+        await store.applyCodexSessionObservations([
+            CodexSessionObservation(task: ended, turnID: "finished")
+        ])
+        XCTAssertEqual(store.tasks.first?.status, .waiting)
+
+        // The terminal bytes have already been consumed. No further observation
+        // is delivered, so only the actual request timeout can release this row.
+        let result = await decision.value
+        XCTAssertNil(result)
+        XCTAssertTrue(store.pendingActionRequests.isEmpty)
+        XCTAssertEqual(store.tasks.first?.status, .completed)
         _ = await store.shutdown()
     }
 

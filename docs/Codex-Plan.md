@@ -2497,3 +2497,76 @@ Dependabot security updates 六项控制；未经明确授权未修改远端设�
   与候选版本和构建绑定的回执及截图，并验证超时/监听器失败回到原生审批。旧版本回执不抵扣。
 - [ ] 主 agent 完成当前源码的统一测试、门禁、构建与上述验收后，再更新对应证据；本节不修改
   历史测试数字，不创建提交，也不声称已有新的通过回执。
+
+## 2026-09-11 会话监控改为事件驱动
+
+`6a490aa` 的只读监控用 1 秒 / 3 秒 `Task.sleep` 轮询，与“稳态不轮询、空闲唤醒受测”的原则
+冲突（无 Codex 的机器也会每 3 秒打开一次根目录）。本节在合入发版分支前把读取时机改为事件驱动，
+读取内容与合并规则不变。
+
+- [x] `CodexSessionLogWatcher`：单条 FSEvents 订阅（目录级，`NoDefer | WatchRoot`，1 秒合并），
+  回调只看标志位，不请求、不读取、不记录事件路径；根缺失时盯父目录 `~/.codex`，根出现后
+  自动切换；父目录也缺失时不向上盯任何目录，等待 `refresh()`。实测 30 次连续追加只触发 2 次回调。
+- [x] `CodexSessionChangeSignal` + `CodexSessionMonitorSchedule`：突发折叠为一次唤醒；只有
+  已显示记录到期（运行中 30 分钟 / 已结束 2 小时）或上一轮预算未读完时才设截止，否则一直睡。
+- [x] `TaskStore`：移除轮询；FSEvents 不可用时状态降为“无法读取”而不是偷偷回退定时器；
+  Codex Hook 快照在监控 `.notFound` 时唤醒一次，刚安装的 Codex 立即被发现。
+- [x] 门禁与文档：安全/性能门禁固定新设计与回归测试；契约 v6.93.0；PRIVACY 中英与数据流清单
+  改为“仅在系统报告变化或记录到期时读取”。
+- [ ] 用重建后的候选在本机做空闲能耗对照（旧候选 3 秒轮询 vs 新候选事件驱动），再进入授权与
+  Allow/Deny 验收。
+
+### 2026-09-11 当前候选重建与运行验证
+
+- [x] 首轮定向测试实际复现深层目录缺失后监听无法恢复。订阅改为绑定真实目录的 device/inode；
+  无目录时保持休眠，后续刷新可恢复失败订阅，重订阅后补信号覆盖间隙写入。
+- [x] 文件变化强制有界发现旧日期目录，修复十秒缓存窗口内重开的未缓存任务可能永久漏显示。
+  取消或超时的审批立即释放已缓存终态，历史仍由原监控 owner 发布。
+- [x] 58 项定向、1029 项全量测试零失败；版本探针 20 轮、hermetic listener 10 轮、tmux 20 轮、
+  Codex trust 5 轮、sleep/wake 20 轮全部通过。Localization、Legal/Data Flow、Performance、
+  Repository Script Syntax、Release Foundation 与最终 diff whitespace 检查通过。
+- [x] T7 新 Universal Production App 完成六个 Mach-O 双架构、依赖闭包、strict deep ad-hoc
+  签名验证；八样本隔离启动 smoke 正常 AppKit 退出且 status 0。
+- [x] 已退出 9/6 旧包并运行新包；真实 UI 显示当前 DevLand、旧 joint 两个运行中会话及一个
+  已结束回复。监控 off/on 显示正确停止/恢复状态，新包退出重启后恢复会话与监听器，偏好恢复开启。
+- [ ] 旧、新进程的短时 CPU/唤醒采样存在真实 Codex 活动，不作为受控空闲能耗对照；仍需补足
+  无新事件时的同负载测量，以及新建任务、实际回复结束/中断的完整实时走查。
+- [ ] 完整 Security 仍停在 0.3.0 Allow 回执与 0.4.0 VERSION 不符；没有修改旧回执或执行 Hook
+  授权。当前候选的真实授权、Allow/Deny 与无障碍验收继续独立待办。
+- [x] 候选：`/Volumes/T7 Shield/MacMini/CodexFiles/DevIsland-Optimization/qa/codex-event-monitoring-20260911/build/Dev Island.app`
+- [x] 主程序 SHA-256：`2260e3676cba429010ffb0152aabf1380a9932872f486993e237f83bcb9412e7`
+- [x] 本轮证据：`/Volumes/T7 Shield/MacMini/CodexFiles/DevIsland-Optimization/qa/codex-event-monitoring-20260911/`
+
+
+### 2026-09-11 持续打开的 writer 漏更新修复
+
+- [x] 真机确认目录 FSEvents 和 FileEvents 均可能等 writer 关闭才通知：十秒内真实
+  4 个文件增加 26,604 bytes，两种流均零回调。先前 v1 的 0.226% CPU 不能证明优化。
+- [x] 保留目录发现，为最多 64 个已发现候选补充事件专用 vnode 订阅；逐级 no-follow 与
+  device/inode 验证，统一一次性合并窗口，无周期轮询。取消回调关闭各自描述符，建立后补读。
+- [x] 保持同一 writer 打开的两次 append 回归先失败后通过；62 项定向 / 1033 项全量零失败，
+  authoritative 五组稳定性测试通过；五项常规门禁通过，契约与法律门禁版本同步到 v6.94.0。
+- [x] 新 Universal production 构建与八样本隔离启动通过。真机会话在同一 inode 保持 writer
+  打开时继续更新来源时间；关闭监控释放全部 64 个文件描述符，重新开启恢复；正常退出及
+  重启后两条运行中会话和监听器恢复。监控偏好保持开启，Hook 尚未授权。
+- [x] 新包：证据根目录下 `build-open-writer-fix/Dev Island.app`；主程序 SHA-256：
+  `52f648568553f4f889e54a9ee8545abfac2f778f3994fd6b22cdb7694fd5bea7`。
+- [ ] 完整 security 仍停在旧 Allow 回执版本，真实回复结束/中断、新建任务、Hook 授权、
+  Allow/Deny 与无障碍验收不由本轮单元测试抵扣。详见证据目录 `VALIDATION_OPEN_WRITER_FIX.md`。
+
+- [x] 真实新版 Desktop 使用 `source=vscode`；仅为已核对的 CLI0.153.4 增加解析兼容分支，
+  保留身份及所有审批证据门槛。独立70项合成回归通过，已接到旧receipt门禁之前；不代表真实
+  授权/决定验收完成。脚本清单同步为54 Bash / 28 Ruby / 9 Swift。
+
+- [x] 2026-09-12 合并前五视角评审后的修正（契约 v6.95.0）：解析器改写稳定阶段标记，紧凑岛条与通知
+  正文不再出现未本地化英文；用户自己中断不再弹"需要关注"通知；快速扫描同时覆盖本地日期目录
+  （Codex 实际按本地日期命名）；历史 SQLite 只在语义变化时重写；监控循环 `.utility` 优先级；
+  授权表单说明写入 `config.toml`、Esc 取消、后台定位 CLI 后才显示复制按钮；`CODEX_HOME`
+  不一致有独立错误；readiness 与授权统一钉 `codex-cli 0.153.4`；`Package.resolved` 恢复 CI 解析
+  结果以免 `swift package resolve && git diff --exit-code` 在 macos-15 上失败；删除 5 个已无引用的
+  文案键。
+- [ ] 待产品决定：被动监测默认开启且首条用户消息可作为标题进入通知与历史（PRIVACY 已披露），
+  是否改为默认只用目录名 / 通知不带标题；透明卡片与 Hook 卡片是否加区分标记。
+- [ ] 无日志输入窗口尚未取得：controller静默45秒、无编译、屏幕解锁，30秒样本仍有3文件
+  增长366,465 bytes（FSEvents仍零事件），metadata正确判无效。活动CPU0.543%不作空闲
+  能耗或旧新优化比例；未停止其他用户任务。完整Security已通过新增70项后停在原旧回执。

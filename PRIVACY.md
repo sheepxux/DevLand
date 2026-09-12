@@ -85,9 +85,19 @@ only the consent records are saved in Codex's own configuration.
 
 **Codex task monitoring is independent of Hooks and enabled by default.** It
 reads bounded local session JSONL records under `~/.codex/sessions`, including
-older conversations that were recently resumed. Each poll reads at most 2 MiB
-from at most 64 files; directory discovery examines at most 8,192 entries and
-skips symbolic links. Raw records may transiently contain conversation content;
+older conversations that were recently resumed (or under `$CODEX_HOME/sessions`
+when that variable names an absolute path). Files are read
+only when macOS reports a change under that directory (one filesystem-event
+subscription plus event-only watches on at most 64 already-discovered files,
+coalesced within one second), a shown row is due to expire,
+or a pending bounded read or monitoring recovery needs to finish. There is no
+periodic polling timer. Each pass reads at most 2 MiB from at most 64
+files, and directory discovery examines at most 8,192 entries and skips
+symbolic links. File watches retain only candidate paths and event-only
+descriptors in memory while monitoring is enabled; they do not read contents.
+Change callbacks never record event paths. Between passes the monitor keeps at
+most one unterminated record (up to 256 KiB) and a 128-byte identity prefix per
+tracked file in memory, nothing on disk. Raw records may transiently contain conversation content;
 only session ID, project directory, source timestamps, response status, and a
 title of at most 120 characters / 512 UTF-8 bytes are retained. The title may
 come from the first user message and can enter the existing local task history
@@ -648,8 +658,16 @@ Server，仅调用 `hooks/list` 检查自身 Hook 是否已启用并受信任。
 审阅内容和配置响应仅暂存在内存，只有用户确认的信任记录写入 Codex 自己的配置。
 
 **Codex 任务监测默认开启，独立于 Hook。** 它有界读取 `~/.codex/sessions` 下的本地
-JSONL，包括近期继续对话的旧任务。每轮最多读取 64 个文件、2 MiB 内容；目录发现最多
-检查 8,192 项并跳过符号链接。原始记录可能瞬时包含对话内容，但仅保留会话 ID、项目
+JSONL（当 `CODEX_HOME` 指向绝对路径时读取 `$CODEX_HOME/sessions`），包括近期继续对话的
+旧任务。仅在 macOS 报告该目录发生变化（单条文件系统事件
+订阅及最多 64 个已发现文件的事件专用监听，在一秒内合并）、某条已显示的记录到期，
+或需要完成有界补读、监控恢复时才读取；
+不设周期性轮询定时器。每轮最多
+读取 64 个文件、2 MiB 内容；目录发现最多检查 8,192 项并跳过符号链接。文件监听仅在监测
+开启时于内存保留候选路径与事件专用描述符，不读取内容；变化回调不记录事件路径。两轮之间
+每个被追踪文件最多在内存中保留一条未换行的记录（不超过 256 KiB）和 128 字节的身份前缀，
+不落盘。
+原始记录可能瞬时包含对话内容，但仅保留会话 ID、项目
 目录、来源时间、回复状态和最多 120 字符 / 512 UTF-8 字节的标题。标题可能取自首条
 用户消息，并进入现有本地历史与用户开启的通知；该摘录可能包含用户写入的敏感内容。
 此功能不会另外提取或保存完整提示词、回复、推理、工具参数或凭据字段，也不传输会话

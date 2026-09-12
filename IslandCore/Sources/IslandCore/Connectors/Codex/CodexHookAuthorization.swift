@@ -20,6 +20,9 @@ public struct CodexHookAuthorizationReview: Equatable, Sendable {
 
 public enum CodexHookAuthorizationError: Error, Equatable, Sendable {
     case unavailable
+    /// Monitoring follows `CODEX_HOME`, but the installed Hooks live in the
+    /// default home. Authorizing one while watching the other is refused.
+    case unsupportedHome
     case unsupportedVersion
     case invalidDefinitions
     case changedSinceReview
@@ -49,18 +52,23 @@ public struct CodexHookAuthorization: Sendable {
         self.transport = transport
     }
 
-    public static func verifiedExecutableURL() -> URL? {
-        // The installed Hook channel currently owns the default Codex home.
-        // Never authorize that home while monitoring a different runtime.
+    /// The installed Hook channel currently owns the default Codex home.
+    /// Never authorize that home while monitoring a different runtime.
+    public static var monitorsInstalledHome: Bool {
         let monitoredHome = CodexSessionLogMonitor.defaultRoot.deletingLastPathComponent()
             .resolvingSymlinksInPath().standardizedFileURL
         let installedHome = LocalAgentDescriptor.codex.configURL.deletingLastPathComponent()
             .resolvingSymlinksInPath().standardizedFileURL
-        guard monitoredHome == installedHome else { return nil }
+        return monitoredHome == installedHome
+    }
+
+    public static func verifiedExecutableURL() -> URL? {
+        guard monitorsInstalledHome else { return nil }
         return CodexHookTrustProbe.verifiedCodexExecutable()
     }
 
     public func review() throws -> CodexHookAuthorizationReview {
+        guard Self.monitorsInstalledHome else { throw CodexHookAuthorizationError.unsupportedHome }
         try requireSupportedVersion()
         let entries = try readEntries()
         let config = try request("config/read", params: ["includeLayers": true])

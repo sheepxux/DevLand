@@ -98,7 +98,7 @@ checked `run` body.
 After both workflow files pass, the same first CI/release gate validates the
 complete repository script closure before dependency resolution; the tag path
 also does so before credential loading. A descriptor-backed walker currently
-collects all 54 Bash, 27 Ruby, and 9 Swift files under `scripts/`, rejects linked,
+collects all 54 Bash, 28 Ruby, and 9 Swift files under `scripts/`, rejects linked,
 writable, unowned, oversized or unstable inputs, then feeds the frozen bytes
 through minimal-environment `/bin/bash -n`, `/usr/bin/ruby -c`, or
 `/usr/bin/swiftc -parse -` stdin. Bash/Ruby require executable bits; Swift is

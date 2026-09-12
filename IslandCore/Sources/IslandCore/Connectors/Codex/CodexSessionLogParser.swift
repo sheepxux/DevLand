@@ -65,11 +65,11 @@ struct CodexSessionLogParser {
         case "user_message":
             consumeUserMessage(payload["message"] as? String, turnID: turnID, at: date)
         case "task_complete", "task_completed":
-            finishTurn(turnID, at: date, status: .completed, phase: "Response finished")
+            finishTurn(turnID, at: date, status: .completed, phase: CodexSessionPhase.responseFinished)
         case "turn_aborted":
-            finishTurn(turnID, at: date, status: .failed, phase: "Interrupted")
+            finishTurn(turnID, at: date, status: .failed, phase: CodexSessionPhase.interrupted)
         case "task_failed", "turn_failed":
-            finishTurn(turnID, at: date, status: .failed, phase: "Response failed")
+            finishTurn(turnID, at: date, status: .failed, phase: CodexSessionPhase.responseFailed)
         case "item_started", "item_completed":
             consumeItem(payload["item"] as? [String: Any], turnID: turnID, at: date)
         default:
@@ -221,12 +221,36 @@ struct CodexSessionLogParser {
         return false
     }
 
-    private static func date(_ value: Any?) -> Date? {
-        guard let text = value as? String, text.utf8.count <= 64 else { return nil }
+    /// Shared formatters: one allocation per process instead of two per
+    /// record. Parsing happens inside the monitor actor, so they are never
+    /// used concurrently.
+    private static let fractionalSecondsFormatter: ISO8601DateFormatter = {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let date = formatter.date(from: text) { return date }
+        return formatter
+    }()
+    private static let wholeSecondsFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime]
-        return formatter.date(from: text)
+        return formatter
+    }()
+
+    private static func date(_ value: Any?) -> Date? {
+        guard let text = value as? String, text.utf8.count <= 64 else { return nil }
+        if let date = fractionalSecondsFormatter.date(from: text) { return date }
+        if let date = wholeSecondsFormatter.date(from: text) { return date }
+        guard let normalized = normalizedFractionalSeconds(text) else { return nil }
+        return fractionalSecondsFormatter.date(from: normalized)
+    }
+
+    /// Codex writes three fractional digits today. Trim or zero-pad any other
+    /// count to three so a vendor change cannot silently drop every event.
+    static func normalizedFractionalSeconds(_ text: String) -> String? {
+        guard let dot = text.firstIndex(of: "."),
+              let end = text[dot...].firstIndex(where: { $0 == "Z" || $0 == "+" || $0 == "-" }) else { return nil }
+        let digits = text[text.index(after: dot)..<end]
+        guard !digits.isEmpty, digits.count != 3, digits.allSatisfy({ $0.isASCII && $0.isNumber }) else { return nil }
+        let fixed = String(digits.prefix(3)).padding(toLength: 3, withPad: "0", startingAt: 0)
+        return text[..<dot] + "." + fixed + text[end...]
     }
 }
