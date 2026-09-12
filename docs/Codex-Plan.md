@@ -2513,8 +2513,16 @@ Dependabot security updates 六项控制；未经明确授权未修改远端设�
   Codex Hook 快照在监控 `.notFound` 时唤醒一次，刚安装的 Codex 立即被发现。
 - [x] 门禁与文档：安全/性能门禁固定新设计与回归测试；契约 v6.93.0；PRIVACY 中英与数据流清单
   改为“仅在系统报告变化或记录到期时读取”。
-- [ ] 用重建后的候选在本机做空闲能耗对照（旧候选 3 秒轮询 vs 新候选事件驱动），再进入授权与
-  Allow/Deny 验收。
+- [x] 2026-09-12 同一安静窗口（无 Codex 会话变化）各自单独运行、10 秒预热、45 秒采样：旧轮询候选
+  `6a490aa` 平均 CPU 1.279%、package-idle 唤醒 0.864/s、写盘 73,728 B；新事件驱动 `15d7469`
+  平均 CPU 0.631%、package-idle 唤醒 0.089/s、写盘 0。剩余约 2 次/秒中断唤醒来自岛自身 UI 节奏。
+  原始数据与协议：`CodexFiles/DevIsland-Optimization/qa/release-0.4.0-candidate-20260912/idle-comparison/`。
+- [x] 2026-09-12 本机岛内授权完成：复用 `CodexHookAuthorization.review()` → `authorize(_:)` 同一代码路径
+  （签名 CLI 0.153.4 App Server），审阅记录与授权输出存于 `evidence/live-0.4.0/hook-authorization-*-20260912.txt`；
+  写入后复核 `alreadyAuthorized = true`，`local-hook-status` 报告 `codex=connected`。只新增 Dev Island
+  五条 `trusted_hash`（`*:1:0` 与 `session_end:0:0`），Vibe Island 的记录未动。
+- [ ] Allow / Deny / 无障碍三份 0.4.0 实机回执：需要用户在 Codex Desktop 新线程（workspace-write +
+  on-request）中执行 `evidence/live-0.4.0/approval-prompt.txt` 与 `deny-prompt.txt`，并在岛内点击。
 
 ### 2026-09-11 当前候选重建与运行验证
 

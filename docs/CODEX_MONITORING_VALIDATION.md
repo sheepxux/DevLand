@@ -167,3 +167,20 @@ metadata checks correctly rejected the window. Average CPU was 0.543% under that
 activity, not an idle-energy result. A controlled quiet window and matched old/new
 comparison remain outstanding. Full security passed the new 70 parser checks and
 then stopped at the unchanged old Allow receipt as expected.
+
+## Committed candidate, idle comparison and on-machine authorization (2026-09-12)
+
+- `chore/release-0.4.0` @ `15d7469` (pushed; CI resolve/security source checks pass and stop
+  only at the 0.3.0 receipt vs VERSION mismatch). Universal production build:
+  `CodexFiles/DevIsland-Optimization/qa/release-0.4.0-candidate-20260912/build/Dev Island.app`,
+  main executable SHA-256 `654528afe56cdbdeece28ab78a622ef17d8876f5ed95d48fc39047d60331508a`.
+- Idle comparison in one quiet window (each app alone, 10 s warm-up, 45 s sample, no Codex
+  session changed): old polling `6a490aa` 1.279 % CPU / 0.864 package-idle wakeups per second /
+  73,728 bytes written; new event-driven `15d7469` 0.631 % CPU / 0.089 per second / 0 bytes.
+  Protocol and raw summaries live in `idle-comparison/` next to the build.
+- Dev Island's five Codex Hook entries were authorized on this Mac through the same
+  `review()` → `authorize(_:)` path the Settings sheet uses; the post-write review reports
+  `alreadyAuthorized = true` and `IslandCoreCLI local-hook-status` reports `codex=connected`.
+  Other trust records were left untouched. Records: `evidence/live-0.4.0/hook-authorization-*-20260912.txt`.
+- Still open: real Allow / Deny / accessibility receipts for this build, and Sparkle keys.
+
