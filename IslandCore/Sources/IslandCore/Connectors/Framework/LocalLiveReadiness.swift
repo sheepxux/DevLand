@@ -147,7 +147,9 @@ public struct LocalHookListenerReadinessProbe: Sendable {
 /// local installation path and the already bounded OpenAI-signed Codex probes.
 public struct LocalLiveReadinessProbe: Sendable {
     public static let verifiedClaudeCodeVersion = "2.1.197"
-    public static let verifiedCodexVersion = "0.149.0-alpha.4.3"
+    /// Kept equal to the version `CodexHookAuthorization` accepts, so one
+    /// install cannot pass one reviewed gate and fail the other.
+    public static let verifiedCodexVersion = "0.153.4"
 
     public init() {}
 

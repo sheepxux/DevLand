@@ -84,7 +84,7 @@ struct TaskCard: View {
                                 .font(.system(size: 11))
                                 .opacity(0.5)
                         }
-                        if let phase = task.currentPhase {
+                        if let phase = displayedPhase {
                             Text(phase)
                                 .font(.system(size: 11))
                                 .lineLimit(1)
@@ -175,7 +175,7 @@ struct TaskCard: View {
     }
 
     private func accessibilitySummary(at referenceDate: Date) -> String {
-        let details = [projectBranch, task.currentPhase]
+        let details = [projectBranch, displayedPhase]
             .compactMap { $0 }
             .map { L10n.format(", %@", language: language, $0) }
             .joined()
@@ -191,6 +191,10 @@ struct TaskCard: View {
     }
 
     private var statusLabel: String {
+        if task.source == "codex",
+           let response = CodexSessionMonitoringPresentation.responseStatus(task.status, phase: task.currentPhase, language: language) {
+            return response
+        }
         let key: String
         switch task.status {
         case .running:   key = "Running"
@@ -199,6 +203,14 @@ struct TaskCard: View {
         case .failed:    key = "Failed"
         }
         return L10n.string(key, language: language)
+    }
+
+    private var displayedPhase: String? {
+        if task.source == "codex",
+           let response = CodexSessionMonitoringPresentation.responseStatus(task.status, phase: task.currentPhase, language: language) {
+            return response
+        }
+        return task.currentPhase
     }
 }
 

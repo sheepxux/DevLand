@@ -83,7 +83,7 @@
   browser-Origin rejection, missing/wrong protocol or authorization Header
   rejection, listener-epoch credential rotation, and an OPTIONS preflight that
   receives no CORS authorization. Managed commands read the private credential
-  through curl `-H @file`; the value is absent from config and argv.
+  through the managed launcher's curl `-H @file`; the value is absent from config and argv.
 - Usage insight: Settings can opt in to an on-demand, bounded read of recent
   local Codex rollout suffixes. Only provider-authored percentages, window
   lengths, reset timestamps, and event time cross into the UI. Missing or

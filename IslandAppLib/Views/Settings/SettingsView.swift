@@ -23,12 +23,14 @@ public struct SettingsView: View {
     @State private var localAgentConnectionsOperation =
         LocalAgentConnectionsOperationState()
     private let initialLiveReadinessSnapshot: LocalLiveReadinessSnapshot?
+    private let initialConnectionStates: [String: LocalAgentHookConnectionState]
     private let previewAppVersion: String?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.devIslandLanguage) private var language
 
     public init() {
         initialLiveReadinessSnapshot = nil
+        initialConnectionStates = [:]
         previewAppVersion = nil
     }
 
@@ -37,26 +39,24 @@ public struct SettingsView: View {
         previewStore: TaskStore,
         initialPane: SettingsPane = .agents,
         initialLiveReadinessSnapshot: LocalLiveReadinessSnapshot? = nil,
+        previewConnectionStates: [String: LocalAgentHookConnectionState] = [:],
         previewAppVersion: String = "0.3.0"
     ) {
         _store = State(initialValue: previewStore)
         _selectedPane = State(initialValue: initialPane)
         self.initialLiveReadinessSnapshot = initialLiveReadinessSnapshot
+        self.initialConnectionStates = previewConnectionStates
         self.previewAppVersion = previewAppVersion
     }
     #endif
 
     public var body: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: 10) {
             sidebar
-
-            Rectangle()
-                .fill(Palette.hairline)
-                .frame(width: 1)
 
             ScrollViewReader { proxy in
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 24) {
+                    VStack(alignment: .leading, spacing: 22) {
                         Color.clear
                             .frame(height: 0)
                             .id("settings-pane-top")
@@ -70,8 +70,10 @@ public struct SettingsView: View {
                                     : .opacity.combined(with: .offset(y: 4))
                             )
                     }
-                    .padding(.horizontal, 30)
-                    .padding(.vertical, 26)
+                    .padding(.leading, 26)
+                    .padding(.trailing, 32)
+                    .padding(.top, 44)
+                    .padding(.bottom, 28)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .onChange(of: selectedPane) { _, _ in
@@ -89,11 +91,13 @@ public struct SettingsView: View {
                 }
             }
         }
-        .frame(minWidth: 700, idealWidth: 720, minHeight: 500, idealHeight: 520)
-        .background(Palette.tourCanvas)
-        .foregroundStyle(Palette.warmWhite)
-        .tint(Palette.warmWhite)
-        .preferredColorScheme(.dark)
+        .padding(.leading, 10)
+        .padding(.vertical, 10)
+        .frame(minWidth: 740, idealWidth: 800, minHeight: 540, idealHeight: 560)
+        .background(WindowCanvas())
+        .foregroundStyle(Palette.Window.ink)
+        .tint(Palette.Window.ink)
+        .preferredColorScheme(.light)
     }
 
     private var sidebar: some View {
@@ -103,28 +107,27 @@ public struct SettingsView: View {
                     .resizable()
                     .interpolation(.high)
                     .scaledToFit()
-                    .frame(width: 25, height: 25)
-                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    .frame(width: 30, height: 30)
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                     .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Dev Island")
-                        .font(.system(size: 12.5, weight: .semibold))
-                        .foregroundStyle(Palette.warmWhite.opacity(0.9))
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Palette.Window.ink)
                     Text(L10n.string("SETTINGS", language: language))
                         .font(.system(size: 8.5, weight: .medium, design: .monospaced))
                         .tracking(0.8)
-                        .foregroundStyle(Palette.textTertiary)
+                        .foregroundStyle(Palette.Window.textTertiary)
                 }
             }
-            .padding(.horizontal, 16)
-            .frame(height: 62)
+            .padding(.horizontal, 14)
+            // The pane runs under the transparent title bar; leave the
+            // traffic lights their row.
+            .padding(.top, 46)
+            .padding(.bottom, 16)
 
-            Rectangle()
-                .fill(Palette.hairline)
-                .frame(height: 1)
-
-            VStack(spacing: 1) {
+            VStack(spacing: 2) {
                 ForEach(SettingsPane.allCases) { pane in
                     Button {
                         withAnimation(Motion.contentReveal) {
@@ -132,21 +135,26 @@ public struct SettingsView: View {
                         }
                     } label: {
                         HStack(spacing: 10) {
-                            Text(pane.indexLabel)
-                                .font(.system(size: 9, weight: .medium, design: .monospaced))
-                                .foregroundStyle(
-                                    pane == selectedPane
-                                        ? Palette.warmWhite.opacity(0.72)
-                                        : Palette.textTertiary
+                            Image(systemName: pane.symbolName)
+                                .font(.system(size: 11, weight: .semibold))
+                                .frame(width: 24, height: 24)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 6.5, style: .continuous)
+                                        .fill(
+                                            pane == selectedPane
+                                                ? Palette.Window.onInk.opacity(0.16)
+                                                : Palette.Window.ink.opacity(0.06)
+                                        )
                                 )
-                                .frame(width: 18, alignment: .leading)
+                                .foregroundStyle(
+                                    pane == selectedPane ? Palette.Window.onInk : Palette.Window.inkSoft
+                                )
+                                .accessibilityHidden(true)
 
                             Text(pane.title(language: language))
-                                .font(.system(size: 11.5, weight: pane == selectedPane ? .semibold : .medium))
+                                .font(.system(size: 12.5, weight: pane == selectedPane ? .semibold : .medium))
                                 .foregroundStyle(
-                                    pane == selectedPane
-                                        ? Palette.warmWhite.opacity(0.92)
-                                        : Palette.textSecondary
+                                    pane == selectedPane ? Palette.Window.onInk : Palette.Window.inkSoft
                                 )
 
                             Spacer(minLength: 0)
@@ -162,14 +170,9 @@ public struct SettingsView: View {
                     )
                 }
             }
-            .padding(.horizontal, 8)
-            .padding(.top, 10)
+            .padding(.horizontal, 10)
 
             Spacer(minLength: 18)
-
-            Rectangle()
-                .fill(Palette.hairline)
-                .frame(height: 1)
 
             VStack(alignment: .leading, spacing: 1) {
                 Button {
@@ -192,32 +195,22 @@ public struct SettingsView: View {
                 .buttonStyle(SettingsSidebarUtilityButtonStyle())
                 .keyboardShortcut("q", modifiers: [.command])
             }
-            .padding(8)
+            .padding(10)
         }
-        .frame(width: 190)
-        .background(Color.white.opacity(0.012))
+        .frame(width: 214)
+        .settingsGlass(radius: Palette.Window.Radius.pane, tone: .pane)
     }
 
     private var paneHeader: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            HStack(spacing: 9) {
-                Text(selectedPane.indexLabel)
-                Rectangle()
-                    .fill(Palette.hairline)
-                    .frame(width: 22, height: 1)
-                Text("06")
-            }
-            .font(.system(size: 9.5, weight: .medium, design: .monospaced))
-            .foregroundStyle(Palette.textTertiary)
-
+        VStack(alignment: .leading, spacing: 6) {
             Text(selectedPane.title(language: language))
-                .font(.system(size: 25, weight: .semibold))
-                .tracking(-0.7)
-                .foregroundStyle(Palette.warmWhite)
+                .font(.system(size: 26, weight: .semibold))
+                .tracking(-0.5)
+                .foregroundStyle(Palette.Window.ink)
 
             Text(selectedPane.detail(language: language))
-                .font(.system(size: 11.5))
-                .foregroundStyle(Palette.textSecondary)
+                .font(.system(size: 13))
+                .foregroundStyle(Palette.Window.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .id(selectedPane)
@@ -234,6 +227,7 @@ public struct SettingsView: View {
                 store: store,
                 showsTitle: false,
                 initialLiveReadinessSnapshot: initialLiveReadinessSnapshot,
+                initialConnectionStates: initialConnectionStates,
                 connectionsOperation: $localAgentConnectionsOperation
             )
         case .general:
@@ -267,6 +261,17 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         String(format: "%02d", Self.allCases.firstIndex(of: self)! + 1)
     }
 
+    var symbolName: String {
+        switch self {
+        case .agents:        return "cpu"
+        case .general:       return "gearshape"
+        case .notifications: return "bell"
+        case .usage:         return "gauge.with.dots.needle.33percent"
+        case .updates:       return "arrow.down.circle"
+        case .support:       return "hand.raised"
+        }
+    }
+
     func title(language: DevIslandLanguage) -> String {
         switch self {
         case .agents:        return L10n.string("Agents", language: language)
@@ -282,7 +287,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         switch self {
         case .agents:
             return L10n.string(
-                "Manage local Agent hooks and the optional Manus cloud connection.",
+                "Connect the Agents you use. Each one shows its tasks and approvals on the island.",
                 language: language
             )
         case .general:
@@ -337,17 +342,12 @@ private struct SettingsSidebarButtonBody: View {
 
     var body: some View {
         configuration.label
-            .padding(.horizontal, 10)
-            .frame(height: 34)
+            .padding(.horizontal, 8)
+            .frame(height: 36)
             .background(
-                Rectangle()
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .fill(background)
             )
-            .overlay(alignment: .leading) {
-                Rectangle()
-                    .fill(Palette.warmWhite.opacity(isSelected ? 0.62 : 0))
-                    .frame(width: 1, height: 16)
-            }
             .animation(Motion.hoverHighlight, value: isSelected)
             .animation(Motion.press, value: configuration.isPressed)
             .animation(
@@ -363,9 +363,9 @@ private struct SettingsSidebarButtonBody: View {
     }
 
     private var background: Color {
-        if configuration.isPressed { return Color.white.opacity(0.065) }
-        if isSelected { return Color.white.opacity(isHovering ? 0.06 : 0.045) }
-        return Color.white.opacity(isHovering ? 0.028 : 0)
+        if isSelected { return configuration.isPressed ? Palette.Window.inkSoft : Palette.Window.ink }
+        if configuration.isPressed { return Palette.Window.pressed }
+        return isHovering ? Palette.Window.hover : .clear
     }
 }
 
@@ -390,7 +390,7 @@ private struct SettingsSidebarUtilityButtonBody: View {
         configuration.label
             .font(.system(size: 10.5, weight: .medium))
             .foregroundStyle(
-                Palette.textSecondary.opacity(
+                Palette.Window.textSecondary.opacity(
                     configuration.isPressed ? 0.55 : (isHovering ? 1 : 0.82)
                 )
             )
@@ -399,7 +399,7 @@ private struct SettingsSidebarUtilityButtonBody: View {
             .frame(height: 30)
             .background(
                 Rectangle()
-                    .fill(Color.white.opacity(isHovering ? 0.025 : 0))
+                    .fill(Palette.Window.ink.opacity(isHovering ? 0.025 : 0))
             )
             .animation(Motion.press, value: configuration.isPressed)
             .animation(
@@ -433,7 +433,7 @@ private struct SettingsToggleRow: View {
                     .font(.system(size: 13, weight: .semibold))
                 Text(L10n.string(subtitle, language: language))
                     .font(.system(size: 11))
-                    .foregroundStyle(Palette.textSecondary)
+                    .foregroundStyle(Palette.Window.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .accessibilityHidden(true)
@@ -446,7 +446,7 @@ private struct SettingsToggleRow: View {
             )
                 .labelsHidden()
                 .toggleStyle(.switch)
-                .tint(Palette.warmWhite)
+                .tint(Palette.Window.ink)
                 .accessibilityHint(
                     L10n.string(subtitle, language: language)
                 )
@@ -485,10 +485,10 @@ private struct UsageInsightsSection: View {
             }
             .background(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(Palette.tourPanel)
+                    .fill(Palette.Window.glass)
                     .overlay {
                         RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .stroke(Palette.hairline, lineWidth: 0.75)
+                            .stroke(Palette.Window.hairline, lineWidth: 0.75)
                     }
             )
         }
@@ -516,7 +516,7 @@ private struct UsageInsightsSection: View {
                     language: language
                 ))
                     .font(.system(size: 11))
-                    .foregroundStyle(Palette.textSecondary)
+                    .foregroundStyle(Palette.Window.textSecondary)
                 Spacer()
             }
             .accessibilityElement(children: .combine)
@@ -536,7 +536,7 @@ private struct UsageInsightsSection: View {
                         ))
                             .font(.system(size: 9, weight: .semibold))
                             .tracking(0.7)
-                            .foregroundStyle(Palette.textTertiary)
+                            .foregroundStyle(Palette.Window.textTertiary)
                         Spacer()
                         Button(L10n.string("Refresh", language: language)) {
                             usage.refresh()
@@ -550,7 +550,7 @@ private struct UsageInsightsSection: View {
 
                     Text(snapshotFooter(snapshot))
                         .font(.system(size: 10))
-                        .foregroundStyle(Palette.textTertiary)
+                        .foregroundStyle(Palette.Window.textTertiary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -581,7 +581,7 @@ private struct UsageInsightsSection: View {
                     Int64(window.usedPercent.rounded())
                 ))
                     .font(.system(size: 11, weight: .medium, design: .monospaced))
-                    .foregroundStyle(Palette.warmWhite.opacity(0.86))
+                    .foregroundStyle(Palette.Window.ink.opacity(0.86))
             }
 
             ProgressView(value: window.usedPercent, total: 100)
@@ -590,7 +590,7 @@ private struct UsageInsightsSection: View {
 
             Text(resetLabel(window.resetsAt))
                 .font(.system(size: 10))
-                .foregroundStyle(Palette.textTertiary)
+                .foregroundStyle(Palette.Window.textTertiary)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(
@@ -611,7 +611,7 @@ private struct UsageInsightsSection: View {
                     .font(.system(size: 12, weight: .semibold))
                 Text(L10n.string(detail, language: language))
                     .font(.system(size: 11))
-                    .foregroundStyle(Palette.textSecondary)
+                    .foregroundStyle(Palette.Window.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 8)
@@ -680,9 +680,9 @@ private struct UsageInsightsSection: View {
     }
 
     private func usageTint(_ usedPercent: Double) -> Color {
-        if usedPercent >= 90 { return Palette.stateFailed }
-        if usedPercent >= 75 { return Palette.stateWaiting }
-        return Palette.warmWhite.opacity(0.82)
+        if usedPercent >= 90 { return Palette.Window.stateFailed }
+        if usedPercent >= 75 { return Palette.Window.stateWaiting }
+        return Palette.Window.ink.opacity(0.82)
     }
 }
 
@@ -720,7 +720,7 @@ private struct UpdatesSection: View {
                             language: language
                         ))
                             .font(.system(size: 11))
-                            .foregroundStyle(Palette.textSecondary)
+                            .foregroundStyle(Palette.Window.textSecondary)
                     }
 
                     Spacer(minLength: 8)
@@ -741,10 +741,10 @@ private struct UpdatesSection: View {
             }
             .background(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(Palette.tourPanel)
+                    .fill(Palette.Window.glass)
                     .overlay {
                         RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .stroke(Palette.hairline, lineWidth: 0.75)
+                            .stroke(Palette.Window.hairline, lineWidth: 0.75)
                     }
             )
         }
@@ -801,7 +801,7 @@ private struct SupportSection: View {
                             language: language
                         ))
                             .font(.system(size: 11))
-                            .foregroundStyle(Palette.textSecondary)
+                            .foregroundStyle(Palette.Window.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
 
@@ -840,7 +840,7 @@ private struct SupportSection: View {
                                 language: language
                              ))
                             .font(.system(size: 11))
-                            .foregroundStyle(Palette.textSecondary)
+                            .foregroundStyle(Palette.Window.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
 
@@ -892,8 +892,8 @@ private struct SupportSection: View {
                              ))
                             .font(.system(size: 11))
                             .foregroundStyle(historyMessage == nil
-                                             ? Palette.textSecondary
-                                             : Palette.warmWhite.opacity(0.8))
+                                             ? Palette.Window.textSecondary
+                                             : Palette.Window.ink.opacity(0.8))
                             .fixedSize(horizontal: false, vertical: true)
                     }
 
@@ -942,10 +942,10 @@ private struct SupportSection: View {
             }
             .background(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(Palette.tourPanel)
+                    .fill(Palette.Window.glass)
                     .overlay {
                         RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .stroke(Palette.hairline, lineWidth: 0.75)
+                            .stroke(Palette.Window.hairline, lineWidth: 0.75)
                     }
             )
         }
@@ -1127,7 +1127,7 @@ struct LaunchHealthNotice: View {
     var body: some View {
         HStack(alignment: .top, spacing: 11) {
             DotMatrixMark(
-                color: Palette.stateWaiting,
+                color: Palette.Window.stateWaiting,
                 size: 11,
                 pattern: .ring,
                 intensity: 0.92
@@ -1145,7 +1145,7 @@ struct LaunchHealthNotice: View {
                     language: language
                 ))
                     .font(.system(size: 11))
-                    .foregroundStyle(Palette.textSecondary)
+                    .foregroundStyle(Palette.Window.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 if consecutiveStartupInterruptions >= 2 {
@@ -1154,7 +1154,7 @@ struct LaunchHealthNotice: View {
                         language: language
                     ))
                         .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(Palette.stateWaiting.opacity(0.82))
+                        .foregroundStyle(Palette.Window.stateWaiting.opacity(0.82))
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.top, 2)
                 }
@@ -1166,10 +1166,10 @@ struct LaunchHealthNotice: View {
         .padding(.vertical, 12)
         .background(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Palette.stateWaiting.opacity(0.045))
+                .fill(Palette.Window.stateWaiting.opacity(0.045))
                 .overlay {
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .stroke(Palette.stateWaiting.opacity(0.20), lineWidth: 0.75)
+                        .stroke(Palette.Window.stateWaiting.opacity(0.20), lineWidth: 0.75)
                 }
         )
         .accessibilityElement(children: .combine)
@@ -1222,7 +1222,7 @@ private struct NotificationsSection: View {
                             language: language
                         ))
                             .font(.system(size: 11))
-                            .foregroundStyle(Palette.textSecondary)
+                            .foregroundStyle(Palette.Window.textSecondary)
                     }
 
                     Spacer(minLength: 12)
@@ -1239,7 +1239,7 @@ private struct NotificationsSection: View {
                     )
                         .labelsHidden()
                         .toggleStyle(.switch)
-                        .tint(Palette.warmWhite)
+                        .tint(Palette.Window.ink)
                         .accessibilityHint(
                             L10n.string(
                                 "Plays short cues through macOS notifications.",
@@ -1253,10 +1253,10 @@ private struct NotificationsSection: View {
                     settingsDivider.padding(.leading, 16)
                     HStack(spacing: 10) {
                         Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundStyle(Palette.stateWaiting)
+                            .foregroundStyle(Palette.Window.stateWaiting)
                         Text(L10n.string(authorizationIssue, language: language))
                             .font(.system(size: 11))
-                            .foregroundStyle(Palette.textSecondary)
+                            .foregroundStyle(Palette.Window.textSecondary)
                         Spacer()
                         Button(L10n.string("Open System Settings", language: language)) {
                             openNotificationSettings()
@@ -1268,10 +1268,10 @@ private struct NotificationsSection: View {
             }
             .background(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(Palette.tourPanel)
+                    .fill(Palette.Window.glass)
                     .overlay {
                         RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .stroke(Palette.hairline, lineWidth: 0.75)
+                            .stroke(Palette.Window.hairline, lineWidth: 0.75)
                     }
             )
         }
@@ -1319,28 +1319,37 @@ enum SettingsAgentGroup: Hashable {
     }
 }
 
+/// Settings › Agent. Every local Agent is grouped by what the user has to do
+/// about it; connected rows expand in place, rows that need attention carry
+/// the page's single primary button, and diagnostics wait at the bottom for
+/// the day something does not react.
 private struct ConnectedServicesSection: View {
     let store: TaskStore
     let showsTitle: Bool
     @Binding private var connectionsOperation: LocalAgentConnectionsOperationState
-    @State private var searchText = ""
     @State private var installationRefreshToken = UUID()
     @State private var hasManagedLocalHooks = false
     @State private var isRefreshingManagedHookState = true
     @State private var managedHookRefreshID = UUID()
     @State private var showDisconnectAllConfirmation = false
     @State private var liveReadinessCheckState: LocalLiveReadinessCheckState
+    @State private var connectionStates: [String: LocalAgentHookConnectionState]
+    @State private var connectionSnapshotToken = UUID()
+    @State private var expandedSource: String?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.devIslandLanguage) private var language
 
     init(
         store: TaskStore,
         showsTitle: Bool = true,
         initialLiveReadinessSnapshot: LocalLiveReadinessSnapshot? = nil,
+        initialConnectionStates: [String: LocalAgentHookConnectionState] = [:],
         connectionsOperation: Binding<LocalAgentConnectionsOperationState>
     ) {
         self.store = store
         self.showsTitle = showsTitle
         _connectionsOperation = connectionsOperation
+        _connectionStates = State(initialValue: initialConnectionStates)
         _liveReadinessCheckState = State(
             initialValue: LocalLiveReadinessCheckState(
                 snapshot: initialLiveReadinessSnapshot
@@ -1349,8 +1358,10 @@ private struct ConnectedServicesSection: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 18) {
             if showsTitle { sectionTitle("Agent Connections") }
+
+            summaryLine
 
             switch store.localHookServiceStatus {
             case .retrying, .unavailable, .stopped:
@@ -1359,65 +1370,70 @@ private struct ConnectedServicesSection: View {
                 EmptyView()
             }
 
-            LocalLiveReadinessCard(
-                snapshot: liveReadinessCheckState.snapshot,
-                isChecking: liveReadinessCheckState.isChecking,
-                isMutationInProgress: connectionsOperation.isMutating,
-                onCheck: checkLiveReadiness
-            )
-
-            if LocalAgentRegistry.all.count > 6 {
-                HStack(spacing: 8) {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundStyle(Palette.textTertiary)
-                    TextField(
-                        L10n.string("Search agents", language: language),
-                        text: $searchText
-                    )
-                        .textFieldStyle(.plain)
-                }
-                .padding(.horizontal, 11)
-                .padding(.vertical, 8)
-                .background(
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .fill(Palette.tourPanel)
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                .stroke(Palette.hairline, lineWidth: 0.75)
-                        }
-                )
+            if let notice = LocalAgentReportingPresentation.notice(
+                store.reportingHealth,
+                language: language
+            ) {
+                LocalAgentReportingNoticeView(notice: notice)
+                    .task { await store.refreshReportingHealth() }
+            } else {
+                Color.clear
+                    .frame(height: 0)
+                    .task { await store.refreshReportingHealth() }
             }
 
             ForEach(
-                SettingsAgentGroup.ordered(
-                    hasLocalAgents: !filteredLocalAgents.isEmpty,
-                    showsManus: showsManus
-                ),
-                id: \.self
-            ) { group in
-                agentGroup(group)
+                Array(groupedLocalAgents.enumerated()),
+                id: \.offset
+            ) { _, entry in
+                VStack(alignment: .leading, spacing: 7) {
+                    groupLabel(
+                        entry.group?.title(language: language)
+                            ?? L10n.string("Local Agents", language: language),
+                        tone: entry.group == .needsAttention ? .attention : .neutral
+                    )
+                    VStack(spacing: 0) {
+                        ForEach(entry.descriptors, id: \.source) { descriptor in
+                            if descriptor.source != entry.descriptors.first?.source { rowDivider }
+                            AgentConnectionRow(
+                                descriptor: descriptor,
+                                store: store,
+                                refreshToken: installationRefreshToken,
+                                connectionState: connectionStates[descriptor.source],
+                                isExpanded: expandedSource == descriptor.source,
+                                onToggleExpanded: { toggleExpanded(descriptor.source) },
+                                onConnectionChanged: refreshConnectionStates,
+                                connectionsOperation: $connectionsOperation
+                            )
+                        }
+                    }
+                    .settingsGlass(
+                        radius: Palette.Window.Radius.group,
+                        tone: entry.group == .needsAttention ? .attention : .neutral
+                    )
+                }
             }
 
-            if !showsManus && filteredLocalAgents.isEmpty {
-                ContentUnavailableView {
-                    Label(
-                        L10n.string("No matching agents", language: language),
-                        systemImage: "magnifyingglass"
-                    )
-                } description: {
-                    Text(L10n.string(
-                        "Try a name such as Codex, Claude, or Cursor.",
-                        language: language
-                    ))
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 18)
+            VStack(alignment: .leading, spacing: 7) {
+                groupLabel(L10n.string("Cloud", language: language), tone: .neutral)
+                ManusServiceRow(store: store)
+                    .settingsGlass(radius: Palette.Window.Radius.group, tone: .neutral)
             }
+
+            footer
         }
-        .onAppear { refreshManagedHookState() }
+        .onAppear {
+            refreshManagedHookState()
+            refreshConnectionStates()
+        }
         .onDisappear {
             managedHookRefreshID = UUID()
+            connectionSnapshotToken = UUID()
             liveReadinessCheckState.invalidate()
+        }
+        // Manual CLI authorization can happen outside this window.
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            refreshConnectionStates()
         }
         .onChange(of: store.localHookServiceStatus) { _, _ in
             liveReadinessCheckState.invalidate()
@@ -1430,6 +1446,7 @@ private struct ConnectedServicesSection: View {
         .onChange(of: connectionsOperation.completionGeneration) { _, _ in
             installationRefreshToken = UUID()
             refreshManagedHookState()
+            refreshConnectionStates()
             liveReadinessCheckState.invalidate()
         }
         .alert(
@@ -1451,86 +1468,71 @@ private struct ConnectedServicesSection: View {
         }
     }
 
-    private var normalizedSearch: String {
-        searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    // MARK: Grouping
+
+    private var groupedLocalAgents: [(group: LocalAgentConnectionGroup?, descriptors: [LocalAgentDescriptor])] {
+        LocalAgentRowPresentation.grouped(LocalAgentRegistry.all, states: connectionStates)
     }
 
-    private var showsManus: Bool {
-        normalizedSearch.isEmpty || "manus cloud".contains(normalizedSearch)
+    private var summaryLine: some View {
+        let hasSnapshot = LocalAgentRegistry.all.allSatisfy { connectionStates[$0.source] != nil }
+        let states = LocalAgentRegistry.all.compactMap { connectionStates[$0.source] }
+        let text = hasSnapshot
+            ? LocalAgentRowPresentation.summary(
+                connected: states.filter { $0 == .connected }.count,
+                needsAttention: states.filter { $0 == .configured || $0 == .updateRequired }.count,
+                notConnected: states.filter { $0 == .disconnected }.count,
+                language: language
+            )
+            : L10n.string("Checking local Agents…", language: language)
+        return Text(text)
+            .font(.system(size: 12, weight: .medium, design: .monospaced))
+            .foregroundStyle(Palette.Window.textSecondary)
+            .accessibilityAddTraits(.updatesFrequently)
     }
 
-    private var filteredLocalAgents: [LocalAgentDescriptor] {
-        guard !normalizedSearch.isEmpty else { return LocalAgentRegistry.all }
-        return LocalAgentRegistry.all.filter { descriptor in
-            [descriptor.displayName, descriptor.source, descriptor.settingsSubtitle]
-                .joined(separator: " ")
-                .lowercased()
-                .contains(normalizedSearch)
-        }
-    }
-
-    private var serviceGroupBackground: some View {
-        RoundedRectangle(cornerRadius: 8, style: .continuous)
-            .fill(Palette.tourPanel)
-            .overlay {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(Palette.hairline, lineWidth: 0.75)
-            }
-    }
-
-    @ViewBuilder
-    private func agentGroup(_ group: SettingsAgentGroup) -> some View {
-        switch group {
-        case .local:
-            groupLabel("Local Agents")
-            VStack(spacing: 0) {
-                // Local agents come straight from the registry: adding an
-                // agent to LocalAgentRegistry adds its Settings row.
-                ForEach(filteredLocalAgents, id: \.source) { descriptor in
-                    if descriptor.source != filteredLocalAgents.first?.source { rowDivider }
-                    LocalAgentServiceRow(
-                        descriptor: descriptor,
-                        refreshToken: installationRefreshToken,
-                        connectionsOperation: $connectionsOperation
-                    )
-                }
-
-                if normalizedSearch.isEmpty {
-                    rowDivider
-                    localAgentMaintenanceRow
-                }
-            }
-            .background(serviceGroupBackground)
-
-        case .cloud:
-            groupLabel("Cloud Agent")
-            ManusServiceRow(store: store)
-                .background(serviceGroupBackground)
-        }
-    }
-
-    private func groupLabel(_ text: String) -> some View {
-        Text(L10n.string(text, language: language))
-            .font(.system(size: 11, weight: .medium))
-            .foregroundStyle(Palette.textTertiary)
+    private func groupLabel(_ text: String, tone: SettingsGlassTone) -> some View {
+        Text(text)
+            .font(.system(size: 11.5, weight: .medium))
+            .foregroundStyle(
+                tone == .attention ? Palette.Window.attentionText : Palette.Window.textSecondary
+            )
+            .padding(.leading, 14)
     }
 
     private var rowDivider: some View {
-        settingsDivider.padding(.leading, 16)
+        settingsDivider.padding(.leading, 54)
+    }
+
+    private func toggleExpanded(_ source: String) {
+        withAnimation(reduceMotion ? nil : Motion.layout) {
+            expandedSource = expandedSource == source ? nil : source
+        }
+    }
+
+    // MARK: Footer
+
+    private var footer: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            LocalLiveReadinessCard(
+                snapshot: liveReadinessCheckState.snapshot,
+                isChecking: liveReadinessCheckState.isChecking,
+                isMutationInProgress: connectionsOperation.isMutating,
+                onCheck: checkLiveReadiness
+            )
+            localAgentMaintenanceRow
+        }
+        .padding(.top, 6)
     }
 
     private var localAgentMaintenanceRow: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(L10n.string("Local Agent Hooks", language: language))
-                    .font(.system(size: 12, weight: .semibold))
-                Text(maintenanceMessage ?? maintenanceStatusMessage)
-                    .font(.system(size: 11))
-                    .foregroundStyle(maintenanceFailed
-                                     ? Palette.stateFailed.opacity(0.9)
-                                     : Palette.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Text(maintenanceMessage ?? maintenanceStatusMessage)
+                .font(.system(size: 11))
+                .foregroundStyle(maintenanceFailed
+                                 ? Palette.Window.destructive
+                                 : Palette.Window.textTertiary)
+                .fixedSize(horizontal: false, vertical: true)
 
             Spacer(minLength: 8)
 
@@ -1545,11 +1547,11 @@ private struct ConnectedServicesSection: View {
                     showDisconnectAllConfirmation = true
                 } label: {
                     Text(L10n.string(
-                        hasManagedLocalHooks ? "Disconnect All…" : "All Disconnected",
+                        hasManagedLocalHooks ? "Disconnect all local Agents…" : "All Disconnected",
                         language: language
                     ))
                 }
-                .buttonStyle(SettingsControlButtonStyle(isDestructive: hasManagedLocalHooks))
+                .buttonStyle(SettingsTextButtonStyle(isDestructive: hasManagedLocalHooks))
                 .disabled(!hasManagedLocalHooks || isRefreshingManagedHookState)
                 .accessibilityHint(
                     L10n.string(
@@ -1560,7 +1562,30 @@ private struct ConnectedServicesSection: View {
             }
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 12)
+    }
+
+    // MARK: Data
+
+    /// One read-only diagnostics pass classifies every row and resolves the
+    /// Codex authorization gate through the signed CLI. It never writes.
+    private func refreshConnectionStates() {
+        let token = UUID()
+        connectionSnapshotToken = token
+
+        Task { @MainActor in
+            let snapshot = await Task.detached(priority: .utility) {
+                LocalAgentHookDiagnostics.snapshotResolvingVendorActivation()
+            }.value
+            guard connectionSnapshotToken == token else { return }
+            let states = Dictionary(
+                snapshot.agents.map { ($0.source, $0.state) },
+                uniquingKeysWith: { first, _ in first }
+            )
+            guard states != connectionStates else { return }
+            withAnimation(reduceMotion ? nil : Motion.layout) {
+                connectionStates = states
+            }
+        }
     }
 
     private func refreshManagedHookState() {
@@ -1698,12 +1723,14 @@ private struct LocalLiveReadinessCard: View {
             .frame(width: 24, height: 24)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(content.title)
+                Text(snapshot == nil && !isChecking
+                     ? L10n.string("Island not reacting?", language: language)
+                     : content.title)
                     .font(.system(size: 12.5, weight: .semibold))
-                    .foregroundStyle(Palette.warmWhite.opacity(0.92))
+                    .foregroundStyle(Palette.Window.ink)
                 Text(content.detail)
                     .font(.system(size: 11))
-                    .foregroundStyle(Palette.textSecondary)
+                    .foregroundStyle(Palette.Window.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -1730,14 +1757,7 @@ private struct LocalLiveReadinessCard: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color.white.opacity(0.018))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .stroke(borderColor, lineWidth: 0.75)
-                }
-        )
+        .settingsGlass(radius: Palette.Window.Radius.group, tone: glassTone)
         .accessibilityElement(children: .contain)
     }
 
@@ -1748,11 +1768,11 @@ private struct LocalLiveReadinessCard: View {
 
     private var tint: Color {
         switch content.tone {
-        case .neutral:   return Palette.textSecondary
-        case .checking:  return Palette.stateRunning
-        case .retry:     return Palette.stateRunning
-        case .ready:     return Palette.stateCompleted
-        case .attention: return Palette.stateWaiting
+        case .neutral:   return Palette.Window.textSecondary
+        case .checking:  return Palette.Window.stateRunning
+        case .retry:     return Palette.Window.stateRunning
+        case .ready:     return Palette.Window.stateCompleted
+        case .attention: return Palette.Window.stateWaiting
         }
     }
 
@@ -1774,12 +1794,52 @@ private struct LocalLiveReadinessCard: View {
         }
     }
 
-    private var borderColor: Color {
+    private var glassTone: SettingsGlassTone {
         switch content.tone {
-        case .neutral: return Palette.hairline
-        case .retry: return tint.opacity(0.20)
-        case .checking, .ready, .attention: return tint.opacity(0.27)
+        case .attention: return .attention
+        case .neutral, .checking, .retry, .ready: return .neutral
         }
+    }
+}
+
+/// Quiet Agents-page notice for a vendor that is working while its Hooks
+/// deliver nothing: the one situation where a blank island is a bug, not a
+/// quiet day.
+private struct LocalAgentReportingNoticeView: View {
+    let notice: LocalAgentReportingNotice
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.devIslandLanguage) private var language
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 12) {
+            AnimatedDotMatrixMark(
+                color: Palette.Window.attention,
+                size: 16,
+                motion: .attention,
+                pattern: .ring,
+                intensity: 0.96,
+                isAnimated: !reduceMotion
+            )
+            .frame(width: 24, height: 24)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(notice.title)
+                    .font(.system(size: 12.5, weight: .semibold))
+                    .foregroundStyle(Palette.Window.ink)
+                Text(notice.hint)
+                    .font(.system(size: 11))
+                    .foregroundStyle(Palette.Window.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 8)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .settingsGlass(radius: Palette.Window.Radius.group, tone: .attention)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(L10n.string("Hooks are not reporting", language: language))
+        .accessibilityValue(notice.accessibilityLabel)
     }
 }
 
@@ -1788,22 +1848,28 @@ private struct LocalLiveReadinessCard: View {
 /// integration whose events are silently disappearing.
 private struct LocalHookServiceNotice: View {
     let store: TaskStore
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.devIslandLanguage) private var language
 
     var body: some View {
-        HStack(alignment: .center, spacing: 11) {
-            Image(systemName: iconName)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(tint)
-                .frame(width: 22, height: 22)
-                .background(Circle().fill(tint.opacity(0.12)))
+        HStack(alignment: .center, spacing: 12) {
+            AnimatedDotMatrixMark(
+                color: tint,
+                size: 16,
+                motion: isRecovering ? .orbiting : .attention,
+                pattern: isRecovering ? .orbit : .ring,
+                intensity: 0.96,
+                isAnimated: !reduceMotion
+            )
+            .frame(width: 24, height: 24)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(L10n.string(title, language: language))
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 12.5, weight: .semibold))
+                    .foregroundStyle(Palette.Window.ink)
                 Text(L10n.string(detail, language: language))
                     .font(.system(size: 11))
-                    .foregroundStyle(Palette.textSecondary)
+                    .foregroundStyle(Palette.Window.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -1819,15 +1885,15 @@ private struct LocalHookServiceNotice: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(tint.opacity(0.055))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .stroke(tint.opacity(0.28), lineWidth: 0.75)
-                }
-        )
+        .settingsGlass(radius: Palette.Window.Radius.group, tone: .attention)
         .accessibilityElement(children: .contain)
+    }
+
+    private var isRecovering: Bool {
+        switch store.localHookServiceStatus {
+        case .retrying, .starting: return true
+        case .unavailable, .stopped, .listening: return false
+        }
     }
 
     private var title: String {
@@ -1868,22 +1934,11 @@ private struct LocalHookServiceNotice: View {
     private var tint: Color {
         switch store.localHookServiceStatus {
         case .retrying:
-            return Palette.stateWaiting
+            return Palette.Window.attention
         case .unavailable, .stopped:
-            return Palette.stateFailed
+            return Palette.Window.stateFailed
         case .starting, .listening:
-            return Palette.stateRunning
-        }
-    }
-
-    private var iconName: String {
-        switch store.localHookServiceStatus {
-        case .retrying, .starting:
-            return "arrow.clockwise"
-        case .unavailable, .stopped:
-            return "exclamationmark"
-        case .listening:
-            return "checkmark"
+            return Palette.Window.stateRunning
         }
     }
 }
@@ -1900,18 +1955,16 @@ private struct ManusServiceRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 10) {
-                AgentLogoBadge(
-                    source: "manus",
-                    size: 24,
-                    ink: Palette.warmWhite.opacity(0.82),
-                    badge: Color.white.opacity(0.045)
+            HStack(spacing: 12) {
+                AgentStateTile(
+                    state: store.apiKeyStatus == .valid ? .connected : .disconnected,
+                    isBusy: isSubmitting
                 )
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Manus").font(.system(size: 13, weight: .semibold))
+                    Text("Manus").font(.system(size: 13.5, weight: .semibold))
                     Text(L10n.string(statusLine, language: language))
-                        .font(.system(size: 11))
-                        .foregroundStyle(Palette.textSecondary)
+                        .font(.system(size: 12))
+                        .foregroundStyle(Palette.Window.textSecondary)
                 }
                 Spacer()
                 trailingControl
@@ -1921,16 +1974,18 @@ private struct ManusServiceRow: View {
             // show a "Disconnect" button only — no need to expose the key.
             if store.apiKeyStatus != .valid {
                 keyField
+                    .padding(.leading, 40)
             }
 
             if let lastError {
                 Text(lastError)
                     .font(.system(size: 11))
-                    .foregroundStyle(Palette.stateFailed)
+                    .foregroundStyle(Palette.Window.destructive)
+                    .padding(.leading, 40)
             }
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 12)
+        .padding(.vertical, 11)
     }
 
     private var statusLine: String {
@@ -1951,7 +2006,7 @@ private struct ManusServiceRow: View {
             } label: {
                 Text(L10n.string("Disconnect", language: language))
             }
-            .buttonStyle(SettingsControlButtonStyle(isDestructive: true))
+            .buttonStyle(SettingsTextButtonStyle(isDestructive: true))
         } else {
             Button {
                 Task { await connect() }
@@ -1972,14 +2027,14 @@ private struct ManusServiceRow: View {
         SecureField("sk-…", text: $apiKeyDraft)
             .textFieldStyle(.plain)
             .font(.system(size: 12, design: .monospaced))
-            .padding(.horizontal, 10)
+            .padding(.horizontal, 12)
             .frame(height: 30)
             .background(
-                RoundedRectangle(cornerRadius: 5, style: .continuous)
-                    .fill(Palette.tourCanvas)
+                Capsule(style: .continuous)
+                    .fill(Palette.Window.field)
                     .overlay {
-                        RoundedRectangle(cornerRadius: 5, style: .continuous)
-                            .stroke(Palette.hairline, lineWidth: 0.75)
+                        Capsule(style: .continuous)
+                            .strokeBorder(Palette.Window.hairlineStrong, lineWidth: 0.75)
                     }
             )
             .onSubmit {
@@ -2026,145 +2081,305 @@ private struct ManusServiceRow: View {
 
 // MARK: - Local agent row (registry-driven)
 
-/// Enables/disables a local agent integration by installing hook entries
-/// into its config file (via the generic `LocalHooksInstaller`). Sessions
-/// report their lifecycle to the always-running `LocalHookServer` — no API
-/// key, no tunnel. Row identity (name, subtitle, config path, logo) comes
-/// entirely from the agent's `LocalAgentDescriptor`.
-private struct LocalAgentServiceRow: View {
+/// One Agent, one sentence, one control. Connected rows expand into an inset
+/// panel that explains what arrives and lets the user disconnect; the Codex
+/// authorization sheet and the monitoring toggle live there too. Row
+/// identity (name, subtitle, config path) comes entirely from the Agent's
+/// `LocalAgentDescriptor`; enabling installs Hook entries through the
+/// generic `LocalHooksInstaller` and sessions report to `LocalHookServer`.
+private struct AgentConnectionRow: View {
     let descriptor: LocalAgentDescriptor
+    let store: TaskStore
     let refreshToken: UUID
+    let connectionState: LocalAgentHookConnectionState?
+    let isExpanded: Bool
+    let onToggleExpanded: () -> Void
+    let onConnectionChanged: () -> Void
     @Binding var connectionsOperation: LocalAgentConnectionsOperationState
 
     @State private var configurationState = LocalAgentInstallationOperationState()
     @State private var lastError: String?
-    @State private var isVendorActivationVerified = false
-    @State private var isCheckingVendorActivation = false
-    @State private var activationCheckToken = UUID()
+    @State private var showsAuthorization = false
+    @State private var isHovering = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.devIslandLanguage) private var language
 
     private var installer: LocalHooksInstaller { .init(descriptor) }
+    private var action: LocalAgentRowAction { LocalAgentRowPresentation.action(for: connectionState) }
+    /// Only a user-initiated change replaces the row's control with progress;
+    /// the quiet background re-inspection keeps the section's known state.
+    private var isBusy: Bool { configurationState.activeMutation != nil }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 10) {
-                AgentLogoBadge(
-                    source: descriptor.source,
-                    size: 24,
-                    ink: Palette.warmWhite.opacity(0.82),
-                    badge: Color.white.opacity(0.045)
+        VStack(alignment: .leading, spacing: 0) {
+            headline
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .contentShape(Rectangle())
+                .background(rowHighlight)
+                .onHover { isHovering = $0 }
+                .onTapGesture {
+                    guard action == .expand, !isBusy else { return }
+                    onToggleExpanded()
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityAddTraits(action == .expand ? .isButton : [])
+                .accessibilityHint(
+                    action == .expand
+                        ? L10n.string(isExpanded ? "Hide details" : "Show details", language: language)
+                        : ""
                 )
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 7) {
-                        Text(descriptor.displayName)
-                            .font(.system(size: 13, weight: .semibold))
-                        if descriptor.releaseStage == .preview {
-                            Text(L10n.string("PREVIEW", language: language))
-                                .font(.system(size: 8, weight: .bold))
-                                .tracking(0.7)
-                            .foregroundStyle(Palette.tourAccent.opacity(0.76))
-                                .accessibilityLabel(
-                                    L10n.string("Preview connector", language: language)
-                                )
-                        }
-                    }
-                    Text(L10n.string(statusLine, language: language))
-                        .font(.system(size: 11))
-                        .foregroundStyle(Palette.textSecondary)
-                }
-                Spacer()
-                if configurationState.isBusy {
-                    HStack(spacing: 6) {
-                        ProgressView()
-                            .controlSize(.mini)
-                            .accessibilityHidden(true)
-                        Text(L10n.string(
-                            configurationState.activeMutation?.progressLocalizationKey
-                                ?? "Checking…",
-                            language: language
-                        ))
-                    }
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(Palette.textSecondary)
-                    .accessibilityElement(children: .combine)
-                } else {
-                    switch configurationState.installationState {
-                    case .checking:
-                        ProgressView()
-                            .controlSize(.mini)
-                            .accessibilityLabel(
-                                L10n.string("Checking agent configuration", language: language)
-                            )
-                    case .current:
-                        HStack(spacing: 7) {
-                            if descriptor.hookActivationRequirement.reviewCommand != nil,
-                               !isVendorActivationVerified {
-                                Button {
-                                    refreshVendorActivationIfNeeded()
-                                } label: {
-                                    Text(L10n.string(
-                                        isCheckingVendorActivation ? "Checking…" : "Check again",
-                                        language: language
-                                    ))
-                                }
-                                .buttonStyle(SettingsControlButtonStyle())
-                                .disabled(
-                                    isCheckingVendorActivation
-                                        || connectionsOperation.isMutating
-                                )
-                                .accessibilityHint(
-                                    L10n.string(
-                                        "Reads Codex Hook status without changing trust or configuration",
-                                        language: language
-                                    )
-                                )
-                            }
-
-                            Button(role: .destructive) {
-                                apply(.disable)
-                            } label: {
-                                Text(L10n.string("Disable", language: language))
-                            }
-                            .buttonStyle(SettingsControlButtonStyle(isDestructive: true))
-                            .disabled(connectionsOperation.isMutating)
-                        }
-
-                    case .updateRequired:
-                        Button {
-                            apply(.update)
-                        } label: {
-                            Text(L10n.string("Update", language: language))
-                        }
-                        .buttonStyle(SettingsControlButtonStyle())
-                        .disabled(connectionsOperation.isMutating)
-
-                    case .absent:
-                        Button {
-                            apply(.enable)
-                        } label: {
-                            Text(L10n.string("Enable", language: language))
-                        }
-                        .buttonStyle(SettingsControlButtonStyle())
-                        .disabled(connectionsOperation.isMutating)
-                    }
-                }
-            }
 
             if let lastError {
                 Text(lastError)
                     .font(.system(size: 11))
-                    .foregroundStyle(Palette.stateFailed)
+                    .foregroundStyle(Palette.Window.destructive)
+                    .padding(.horizontal, 14)
+                    .padding(.leading, 40)
+                    .padding(.bottom, 10)
+            }
+
+            if isExpanded, action == .expand {
+                details
+                    .padding(.horizontal, 14)
+                    .padding(.leading, 40)
+                    .padding(.bottom, 12)
+                    .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
         .onAppear { refreshInstallationState() }
         .onChange(of: refreshToken) { _, _ in refreshInstallationState() }
         .onDisappear {
             configurationState.invalidate()
-            activationCheckToken = UUID()
-            isCheckingVendorActivation = false
         }
+        .sheet(isPresented: $showsAuthorization) {
+            CodexHookAuthorizationSheet(onAuthorized: onConnectionChanged)
+        }
+    }
+
+    private var rowHighlight: some View {
+        Rectangle()
+            .fill(
+                isExpanded
+                    ? Palette.Window.ink.opacity(0.035)
+                    : (isHovering && action == .expand ? Palette.Window.hover : .clear)
+            )
+    }
+
+    private var headline: some View {
+        HStack(spacing: 12) {
+            AgentStateTile(state: connectionState, isBusy: isBusy)
+
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 7) {
+                    Text(descriptor.displayName)
+                        .font(.system(size: 13.5, weight: .semibold))
+                        .foregroundStyle(Palette.Window.ink)
+                    if descriptor.releaseStage == .preview {
+                        Text(L10n.string("PREVIEW", language: language))
+                            .font(.system(size: 8, weight: .bold))
+                            .tracking(0.7)
+                            .foregroundStyle(Palette.Window.textTertiary)
+                            .accessibilityLabel(
+                                L10n.string("Preview connector", language: language)
+                            )
+                    }
+                }
+                Text(statusLine)
+                    .font(.system(size: 12))
+                    .foregroundStyle(
+                        action == .authorize || action == .update
+                            ? Palette.Window.attentionText
+                            : Palette.Window.textSecondary
+                    )
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 8)
+
+            trailingControl
+        }
+    }
+
+    @ViewBuilder
+    private var trailingControl: some View {
+        if isBusy {
+            HStack(spacing: 6) {
+                ProgressView()
+                    .controlSize(.mini)
+                    .accessibilityHidden(true)
+                Text(L10n.string(
+                    configurationState.activeMutation?.progressLocalizationKey
+                        ?? "Checking…",
+                    language: language
+                ))
+            }
+            .font(.system(size: 11, weight: .medium))
+            .foregroundStyle(Palette.Window.textSecondary)
+            .accessibilityElement(children: .combine)
+        } else {
+            switch action {
+            case .expand:
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Palette.Window.textTertiary)
+                    .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                    .animation(reduceMotion ? nil : Motion.layout, value: isExpanded)
+                    .frame(width: 16, height: 16)
+                    .accessibilityHidden(true)
+
+            case .authorize:
+                Button {
+                    showsAuthorization = true
+                } label: {
+                    Text(CodexTrustGuidance.actionTitle(language: language))
+                }
+                .buttonStyle(SettingsPrimaryButtonStyle())
+                .disabled(connectionsOperation.isMutating)
+                .accessibilityHint(L10n.string(
+                    "Review the exact commands before authorizing Dev Island hooks",
+                    language: language
+                ))
+
+            case .update:
+                Button {
+                    apply(.update)
+                } label: {
+                    Text(L10n.string("Update connection", language: language))
+                }
+                .buttonStyle(SettingsPrimaryButtonStyle())
+                .disabled(connectionsOperation.isMutating)
+
+            case .connect:
+                Button {
+                    apply(.enable)
+                } label: {
+                    Text(L10n.string("Connect", language: language))
+                }
+                .buttonStyle(SettingsControlButtonStyle())
+                .disabled(connectionsOperation.isMutating || connectionState == nil)
+            }
+        }
+    }
+
+    private var details: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            VStack(spacing: 0) {
+                if descriptor.source == "codex" {
+                    detailLine(
+                        title: L10n.string("Task activity", language: language),
+                        subtitle: L10n.string(
+                            "Reads local session logs. Data stays on this Mac.",
+                            language: language
+                        )
+                    ) {
+                        Toggle(
+                            L10n.string("Task activity", language: language),
+                            isOn: Binding(
+                                get: { store.codexSessionMonitoringEnabled },
+                                set: { store.setCodexSessionMonitoringEnabled($0) }
+                            )
+                        )
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .controlSize(.small)
+                        .tint(Palette.Window.ink)
+                    }
+                    Text(CodexSessionMonitoringPresentation.status(
+                        store.codexSessionMonitorStatus, language: language
+                    ))
+                    .font(.system(size: 11))
+                    .foregroundStyle(Palette.Window.textTertiary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 9)
+                    settingsDivider
+                }
+
+                detailLine(
+                    title: L10n.string("Approvals", language: language),
+                    subtitle: approvalsSubtitle
+                ) {
+                    if descriptor.source == "codex" {
+                        Button {
+                            showsAuthorization = true
+                        } label: {
+                            Text(L10n.string("View commands", language: language))
+                        }
+                        .buttonStyle(SettingsTextButtonStyle())
+                        .accessibilityHint(L10n.string(
+                            "Review the exact commands before authorizing Dev Island hooks",
+                            language: language
+                        ))
+                    }
+                }
+            }
+            .settingsGlass(radius: Palette.Window.Radius.inset, tone: .inset)
+
+            Button(role: .destructive) {
+                apply(.disable)
+            } label: {
+                Text(L10n.string("Disconnect", language: language))
+            }
+            .buttonStyle(SettingsTextButtonStyle(isDestructive: true))
+            .disabled(connectionsOperation.isMutating)
+            .padding(.leading, 2)
+        }
+    }
+
+    private func detailLine<Control: View>(
+        title: String,
+        subtitle: String,
+        @ViewBuilder control: () -> Control
+    ) -> some View {
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title)
+                    .font(.system(size: 12.5, weight: .semibold))
+                    .foregroundStyle(Palette.Window.ink)
+                Text(subtitle)
+                    .font(.system(size: 11))
+                    .foregroundStyle(Palette.Window.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 8)
+            control()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+    }
+
+    private var approvalsSubtitle: String {
+        if descriptor.source == "codex" {
+            return L10n.format(
+                "Authorized · %lld commands",
+                language: language,
+                Int64(descriptor.hookEvents.count)
+            )
+        }
+        let capabilities = descriptor.capabilities
+        if capabilities.permissionRequests == .bidirectional
+            || capabilities.questionRequests == .bidirectional
+            || capabilities.planReviews == .bidirectional {
+            return L10n.string("Arrive through the local hook in real time", language: language)
+        }
+        if capabilities.permissionRequests == .observeOnly
+            || capabilities.questionRequests == .observeOnly
+            || capabilities.planReviews == .observeOnly {
+            return L10n.string("Attention requests arrive through the local hook", language: language)
+        }
+        return L10n.string("Sessions arrive through the local hook", language: language)
+    }
+
+    private var statusLine: String {
+        if let operation = configurationState.activeMutation {
+            return L10n.string(operation.progressLocalizationKey, language: language)
+        }
+        return LocalAgentRowPresentation.statusLine(
+            state: connectionState,
+            descriptor: descriptor,
+            language: language
+        )
     }
 
     private func apply(_ operation: LocalAgentConfigurationOperation) {
@@ -2179,9 +2394,6 @@ private struct LocalAgentServiceRow: View {
             connectionsOperation.cancel(surfaceOperationID)
             return
         }
-        activationCheckToken = UUID()
-        isVendorActivationVerified = false
-        isCheckingVendorActivation = false
         lastError = nil
         let installer = installer
 
@@ -2209,31 +2421,11 @@ private struct LocalAgentServiceRow: View {
                     "Could not update this agent’s configuration.",
                     language: language
                 )
-            refreshVendorActivationIfNeeded()
-        }
-    }
-
-    private var statusLine: String {
-        if let operation = configurationState.activeMutation {
-            return operation.progressLocalizationKey
-        }
-        switch configurationState.installationState {
-        case .checking:
-            return "Checking configuration…"
-        case .absent:
-            return descriptor.settingsSubtitle
-        case .current:
-            return installedStatusLine
-        case .updateRequired:
-            return L10n.string("Update available", language: language)
         }
     }
 
     private func refreshInstallationState() {
         guard let refreshID = configurationState.beginRefresh() else { return }
-        activationCheckToken = UUID()
-        isCheckingVendorActivation = false
-        isVendorActivationVerified = false
         let installer = installer
 
         Task { @MainActor in
@@ -2242,85 +2434,7 @@ private struct LocalAgentServiceRow: View {
             ) {
                 LocalAgentConfigurationWorker.inspect(installer: installer)
             }
-            guard configurationState.accept(state, for: refreshID) else { return }
-            refreshVendorActivationIfNeeded()
-        }
-    }
-
-    private var installedStatusLine: String {
-        if let command = descriptor.hookActivationRequirement.reviewCommand {
-            if isCheckingVendorActivation {
-                return L10n.format(
-                    "Checking %@ Hook trust…",
-                    language: language,
-                    descriptor.displayName
-                )
-            }
-            if isVendorActivationVerified {
-                return L10n.format(
-                    "Connected — Hook trust verified by %@",
-                    language: language,
-                    descriptor.displayName
-                )
-            }
-            return L10n.format(
-                "Configured — review and trust the Dev Island entries in %@ %@",
-                language: language,
-                descriptor.displayName,
-                command
-            )
-        }
-        if descriptor.capabilities.permissionRequests == .bidirectional
-            || descriptor.capabilities.questionRequests == .bidirectional
-            || descriptor.capabilities.planReviews == .bidirectional {
-            return L10n.string(
-                descriptor.releaseStage == .preview
-                    ? "Preview connected — requests work in simulation; real CLI check pending"
-                    : "Connected — requests can be handled in the island",
-                language: language
-            )
-        }
-        if descriptor.capabilities.permissionRequests == .observeOnly
-            || descriptor.capabilities.questionRequests == .observeOnly
-            || descriptor.capabilities.planReviews == .observeOnly {
-            return L10n.string(
-                descriptor.releaseStage == .preview
-                    ? "Preview connected — real CLI acceptance pending"
-                    : "Connected — attention requests appear automatically",
-                language: language
-            )
-        }
-        return L10n.string(
-            "Connected — new sessions appear automatically",
-            language: language
-        )
-    }
-
-    private func refreshVendorActivationIfNeeded() {
-        let token = UUID()
-        activationCheckToken = token
-        isVendorActivationVerified = false
-
-        guard configurationState.installationState == .current,
-              !configurationState.isBusy,
-              descriptor.hookActivationRequirement.reviewCommand != nil else {
-            isCheckingVendorActivation = false
-            return
-        }
-        isCheckingVendorActivation = true
-        let source = descriptor.source
-
-        Task { @MainActor in
-            let snapshot = await Task.detached(priority: .utility) {
-                LocalAgentHookDiagnostics.snapshotResolvingVendorActivation()
-            }.value
-            guard activationCheckToken == token,
-                  configurationState.installationState == .current,
-                  !configurationState.isBusy else { return }
-            isCheckingVendorActivation = false
-            isVendorActivationVerified = snapshot.agents.first {
-                $0.source == source
-            }?.state == .connected
+            _ = configurationState.accept(state, for: refreshID)
         }
     }
 }
@@ -2367,7 +2481,7 @@ private struct GeneralSection: View {
                             language: language
                         ))
                             .font(.system(size: 11))
-                            .foregroundStyle(Palette.textSecondary)
+                            .foregroundStyle(Palette.Window.textSecondary)
                     }
 
                     Spacer(minLength: 12)
@@ -2400,18 +2514,18 @@ private struct GeneralSection: View {
                             Spacer(minLength: 4)
                             Image(systemName: "chevron.up.chevron.down")
                                 .font(.system(size: 8, weight: .semibold))
-                                .foregroundStyle(Palette.textTertiary)
+                                .foregroundStyle(Palette.Window.textTertiary)
                         }
                         .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(Palette.warmWhite.opacity(0.82))
+                        .foregroundStyle(Palette.Window.ink.opacity(0.82))
                         .padding(.horizontal, 10)
                         .frame(width: 150, height: 30)
                         .background(
                             RoundedRectangle(cornerRadius: 5, style: .continuous)
-                                .fill(Color.white.opacity(0.025))
+                                .fill(Palette.Window.ink.opacity(0.025))
                                 .overlay {
                                     RoundedRectangle(cornerRadius: 5, style: .continuous)
-                                        .stroke(Palette.hairline, lineWidth: 0.75)
+                                        .stroke(Palette.Window.hairline, lineWidth: 0.75)
                                 }
                         )
                     }
@@ -2440,7 +2554,7 @@ private struct GeneralSection: View {
                 if let lastError {
                     Text(lastError)
                         .font(.system(size: 11))
-                        .foregroundStyle(Palette.stateFailed)
+                        .foregroundStyle(Palette.Window.stateFailed)
                         .padding(.horizontal, 16)
                         .padding(.bottom, 12)
                 }
@@ -2452,10 +2566,10 @@ private struct GeneralSection: View {
             }
             .background(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(Palette.tourPanel)
+                    .fill(Palette.Window.glass)
                     .overlay {
                         RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .stroke(Palette.hairline, lineWidth: 0.75)
+                            .stroke(Palette.Window.hairline, lineWidth: 0.75)
                     }
             )
         }
@@ -2470,7 +2584,7 @@ private struct GeneralSection: View {
     private var escShortcutRow: some View {
         HStack(spacing: 10) {
             Image(systemName: "keyboard")
-                .foregroundStyle(Palette.textTertiary)
+                .foregroundStyle(Palette.Window.textTertiary)
             VStack(alignment: .leading, spacing: 2) {
                 Text(L10n.string("Close the Panel with Esc", language: language))
                     .font(.system(size: 13, weight: .semibold))
@@ -2479,7 +2593,7 @@ private struct GeneralSection: View {
                     language: language
                 ))
                     .font(.system(size: 11))
-                    .foregroundStyle(Palette.textSecondary)
+                    .foregroundStyle(Palette.Window.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 8)
@@ -2521,37 +2635,177 @@ private struct GeneralSection: View {
 private func sectionTitle(_ text: LocalizedStringKey) -> some View {
     Text(text)
         .font(.system(size: 12, weight: .medium))
-        .foregroundStyle(Palette.warmWhite.opacity(0.72))
+        .foregroundStyle(Palette.Window.ink.opacity(0.72))
 }
 
 private var settingsDivider: some View {
     Rectangle()
-        .fill(Palette.hairline)
+        .fill(Palette.Window.hairline)
         .frame(height: 1)
 }
 
+// MARK: - Window materials and controls
+
+enum SettingsGlassTone {
+    /// The floating sidebar.
+    case pane
+    /// Grouped lists and cards.
+    case neutral
+    /// A panel nested inside a row.
+    case inset
+    /// The one group that asks for something.
+    case attention
+}
+
+/// Frosted glass over the beige canvas: material, a translucent fill, a
+/// hairline and a top highlight, with radii that nest concentrically.
+private struct SettingsGlass: ViewModifier {
+    let radius: CGFloat
+    let tone: SettingsGlassTone
+
+    func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
+        return content
+            .background {
+                ZStack {
+                    if tone == .pane || tone == .neutral {
+                        shape.fill(.thinMaterial)
+                    }
+                    shape.fill(fill)
+                }
+            }
+            .clipShape(shape)
+            .overlay {
+                shape.strokeBorder(stroke, lineWidth: 0.75)
+            }
+            .overlay(alignment: .top) {
+                shape
+                    .strokeBorder(Palette.Window.glassHighlight, lineWidth: 1)
+                    .mask(
+                        LinearGradient(
+                            colors: [Color.black, Color.black.opacity(0)],
+                            startPoint: .top,
+                            endPoint: .center
+                        )
+                    )
+                    .allowsHitTesting(false)
+            }
+            .shadow(color: shadow, radius: tone == .pane ? 18 : 3, y: tone == .pane ? 8 : 1)
+    }
+
+    private var fill: Color {
+        switch tone {
+        case .pane, .neutral: return Palette.Window.glass
+        case .inset:          return Palette.Window.glassDeep
+        case .attention:      return Palette.Window.attentionTint
+        }
+    }
+
+    private var stroke: Color {
+        tone == .attention ? Palette.Window.attentionHair : Palette.Window.hairline
+    }
+
+    private var shadow: Color {
+        switch tone {
+        case .pane:    return Color(hex: 0x463A22).opacity(0.10)
+        case .neutral: return Color(hex: 0x463A22).opacity(0.05)
+        case .inset, .attention: return .clear
+        }
+    }
+}
+
+extension View {
+    func settingsGlass(radius: CGFloat, tone: SettingsGlassTone) -> some View {
+        modifier(SettingsGlass(radius: radius, tone: tone))
+    }
+}
+
+/// The window ground: the icon's beige with two soft lights for the glass
+/// to refract. Flat color would make the material invisible.
+struct WindowCanvas: View {
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [Palette.Window.canvasLight, Palette.Window.canvas, Palette.Window.canvasDeep],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            RadialGradient(
+                colors: [Palette.Window.canvasLight.opacity(0.9), Palette.Window.canvasLight.opacity(0)],
+                center: UnitPoint(x: 0.78, y: 0),
+                startRadius: 0,
+                endRadius: 420
+            )
+            RadialGradient(
+                colors: [Color(hex: 0xD4C4A0).opacity(0.35), Color(hex: 0xD4C4A0).opacity(0)],
+                center: UnitPoint(x: 0.06, y: 1),
+                startRadius: 0,
+                endRadius: 360
+            )
+        }
+        .ignoresSafeArea()
+    }
+}
+
+/// Secondary capsule: glass with a hairline. The default for every row action.
 struct SettingsControlButtonStyle: ButtonStyle {
     var isDestructive = false
+    @Environment(\.isEnabled) private var isEnabled
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 10, weight: .semibold))
-            .foregroundStyle(
-                isDestructive
-                    ? Palette.stateFailed.opacity(configuration.isPressed ? 0.62 : 0.88)
-                    : Palette.warmWhite.opacity(configuration.isPressed ? 0.55 : 0.76)
-            )
-            .padding(.horizontal, 10)
+            .font(.system(size: 12, weight: .medium))
+            .foregroundStyle(isDestructive ? Palette.Window.destructive : Palette.Window.ink)
+            .padding(.horizontal, 12)
             .frame(height: 28)
             .background(
-                RoundedRectangle(cornerRadius: 5, style: .continuous)
-                    .fill(Color.white.opacity(configuration.isPressed ? 0.045 : 0.025))
+                Capsule(style: .continuous)
+                    .fill(Palette.Window.field.opacity(configuration.isPressed ? 1 : 0.8))
                     .overlay {
-                        RoundedRectangle(cornerRadius: 5, style: .continuous)
-                            .stroke(Palette.hairline, lineWidth: 0.75)
+                        Capsule(style: .continuous)
+                            .strokeBorder(Palette.Window.hairlineStrong, lineWidth: 0.75)
                     }
             )
-            .opacity(configuration.isPressed ? 0.9 : 1)
+            .opacity(isEnabled ? (configuration.isPressed ? 0.85 : 1) : 0.45)
+            .animation(Motion.press, value: configuration.isPressed)
+    }
+}
+
+/// Primary capsule: the icon's black tile. At most one per view.
+struct SettingsPrimaryButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(Palette.Window.onInk)
+            .padding(.horizontal, 13)
+            .frame(height: 28)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(configuration.isPressed ? Palette.Window.inkSoft : Palette.Window.ink)
+            )
+            .opacity(isEnabled ? 1 : 0.45)
+            .animation(Motion.press, value: configuration.isPressed)
+    }
+}
+
+/// Text-only action for the quiet end of a row; destructive gets a color,
+/// never a filled shape.
+struct SettingsTextButtonStyle: ButtonStyle {
+    var isDestructive = false
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 12, weight: .medium))
+            .foregroundStyle(
+                (isDestructive ? Palette.Window.destructive : Palette.Window.ink)
+                    .opacity(configuration.isPressed ? 0.55 : 1)
+            )
+            .padding(.vertical, 4)
+            .contentShape(Rectangle())
+            .opacity(isEnabled ? 1 : 0.45)
             .animation(Motion.press, value: configuration.isPressed)
     }
 }

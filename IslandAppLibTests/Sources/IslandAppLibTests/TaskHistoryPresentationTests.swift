@@ -4,6 +4,13 @@ import XCTest
 @testable import IslandCore
 
 final class TaskHistoryPresentationTests: XCTestCase {
+    func testCodexHistoryDescribesResponseBoundaries() {
+        let completed = task(id: "reply", source: "codex", title: "A", status: .completed)
+        let interrupted = task(id: "reply", source: "codex", title: "A", status: .failed)
+        XCTAssertEqual(TaskHistoryPresentation.statusLabel(for: completed, isLive: true, language: .english), "Response finished")
+        XCTAssertEqual(TaskHistoryPresentation.statusLabel(for: interrupted, isLive: false, language: .simplifiedChinese), "本轮回复已中断")
+    }
+
     func testFilteringUsesTitleAndAgentWithoutExposingSessionIDAsSearchSurface() {
         let tasks = [
             task(id: "secret-id", source: "codex", title: "Refine onboarding", status: .completed),

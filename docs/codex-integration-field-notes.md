@@ -1,112 +1,167 @@
 # Codex integration field notes
 
-Last official-source review: 2026-08-26
-
-Status: the shipping integration remains a local Hook connector. A short-lived,
-read-only App Server process is now used only to verify whether the exact Dev
-Island Hooks are enabled and trusted; it is not a thread/session connector.
-Codex Cloud task monitoring is not a public integration surface found in the
-current official documentation.
+Implementation review: 2026-09-06. This describes the current development
+worktree; current-candidate real Allow/Deny acceptance remains outstanding.
+Historical receipts and automated fixtures do not close that gate.
 
 ## Decision summary
 
-| Surface | What official documentation establishes | Dev Island decision |
+Codex has two independent local channels. Passive JSONL monitoring discovers
+work without requiring Hook trust. Synchronous Hooks carry real approval
+requests and decisions. A running card does not prove that approval Hooks are
+authorized or that a command has been approved.
+
+| Surface | Scope | Dev Island decision |
 | --- | --- | --- |
-| Local Hooks | Codex loads user Hooks from `~/.codex/hooks.json` or inline config; non-managed definitions are trusted by their current hash and new/changed definitions are skipped until reviewed | Keep the existing local loopback integration. File inspection proves **Configured**; only the bounded trust probe may promote the exact definitions to **Connected** |
-| App Server | A client-owned local JSONL protocol over stdio exposes threads, turns, approvals, events, and `hooks/list`; the current generated schema includes per-Hook `enabled`, `currentHash`, and `trustStatus`; WebSocket transport is experimental | Ship only the narrow `hooks/list` trust probe described below. Full thread/session control remains future work and must not take over a user's unrelated Codex process |
-| Codex SDK | TypeScript and Python clients drive Codex threads through a local App Server runtime | Do not describe it as a Codex Cloud task-list API |
-| Codex Cloud | Official docs describe ChatGPT/Codex UI, repository environments, and background tasks | No public API was found for listing or monitoring a user's existing Codex Cloud tasks; mark unsupported instead of leaving “API TBD” |
-| Responses background mode + Webhooks | Generic Responses API jobs can run in the background and emit signed Webhooks | Treat this as a separate OpenAI API integration. Never label generic Responses jobs as Codex Cloud sessions |
+| Local session JSONL | Existing desktop/CLI rollout records | Enabled by default, read-only, bounded, independently switchable; discover work and response outcomes without waiting for Hooks |
+| Local Hooks | Lifecycle events and synchronous PermissionRequest | Real decisions use the loopback exchange; logs never manufacture approval requests or Allow/Deny actions |
+| App Server Hook/config methods | hooks/list, config/read, config/batchWrite in a verified local child | Check trust read-only; after the user reviews exact commands and clicks authorization, write only those trust entries and verify again |
+| Full App Server thread control | Threads and live turns owned by a particular server instance | Future work; a separate server does not automatically subscribe to the desktop application's existing live runtime |
+| Codex SDK | Clients that drive Codex through a local runtime | Not a Codex Cloud task-list API |
+| Codex Cloud / Responses background jobs | Separate hosted product and API surfaces | No current connector for existing Codex Cloud tasks; do not relabel generic Responses jobs as Codex sessions |
 
-## Current local Hook mode
+## Passive task monitoring
 
-Dev Island writes only its managed groups in `~/.codex/hooks.json`, preserving
-the user's other keys and Hooks. Lifecycle events are short, passive loopback
-posts. `PermissionRequest` is a bounded synchronous loopback request so the
-island can return Codex's documented allow/deny response; timeout, app exit, or
-listener failure returns a neutral result and leaves Codex's native path in
-control.
+CodexSessionLogMonitor reads $CODEX_HOME/sessions when CODEX_HOME is an
+absolute path, otherwise ~/.codex/sessions. It does not edit Codex files,
+enable Hooks, change sandbox/approval settings, or create a Codex task. The
+monitoring switch controls this channel independently of Hooks and pending
+decisions.
 
-Writing the file is not the final activation step. Codex requires review and
-trust of the exact non-managed Hook definition and records that trust against
-the current definition hash. A changed command therefore needs review again.
-Dev Island does not read undocumented state to guess that decision. Its
-configuration diagnostic has four states:
+The scanner refreshes recent date directories and performs bounded discovery
+of the wider date tree: a conversation resumed today may still use a rollout
+in its original creation-date directory. Entry/file/byte budgets are finite.
+Large files use a bounded metadata header and recent suffix instead of loading
+a complete transcript. Directory-relative, no-follow descriptors reject
+symlink substitutions. Partial JSONL records wait for their newline; oversized
+or malformed records are discarded. A deliberate gap resets turn ordering
+while preserving validated metadata, so a later turn whose start fell in the
+skipped span can still be observed.
 
-- `connected`: exact config is present and either the vendor has no separately
-  declared activation gate or the documented vendor check proves that gate;
-- `configured`: exact config is present, but the vendor-owned trust/activation
-  result is not proved by config alone;
-- `update-required`: a Dev Island entry exists but differs from the current
-  managed definition;
-- `disconnected`: no managed entry is present.
+CodexSessionLogParser recognizes metadata, task starts, human user messages,
+current item lifecycle records, response completion and interruption.
+Metadata alone does not create a running card. Subagent/helper origins,
+including memory and chronicle work, are excluded. A failed individual tool is
+recoverable activity, not proof that the response failed. A completed response
+is labeled **Response finished**; interruption remains **Interrupted** instead
+of turning green. Known old-turn terminal records cannot overwrite a newer
+turn. Unknown records do not become user actions.
 
-For Codex, an exact install first maps to `configured`. Welcome, Settings, CLI,
-and Support run the read-only probe and promote it to `connected` only when all
-exact Dev Island definitions are enabled and `trusted` or `managed`. Every
-unavailable, timeout, parse, schema, discovery, disabled, modified, untrusted,
-missing, path, event, or command mismatch fails conservatively back to
-`configured`; Settings keeps `/hooks` guidance and offers **Check again**.
-The exposed diagnostic remains low-cardinality and includes no paths, hashes,
-Hook contents, prompts, or session identifiers.
+Freshness uses actual recorded event time, never read time or mtime. Running
+observations expire after thirty minutes without a recognized event; terminal
+observations expire after two hours. Far-future records are rejected before
+parser state changes, so they cannot block subsequent valid events. Initial
+discovery does not replay historical status changes as fresh notifications.
 
-## Shipping bounded App Server trust probe
+The task projection contains validated IDs, an absolute project directory when
+valid, state/phase/timestamps, and a bounded title. The title may be the first
+human message line after metadata filtering, limited to 120 characters and
+512 UTF-8 bytes, with the project name as fallback. That title and ordinary
+task fields can enter existing local task history. Raw prompts, complete
+transcripts, reasoning and tool-output payloads are not stored as task history
+or sent to a Dev Island service. Framing temporarily holds bounded record bytes
+in memory while parsing.
 
-The official App Server protocol documents `hooks/list`. A read-only check with
-the installed `codex-cli 0.149.0-alpha.4.3` generated its v2 JSON Schema in a
-temporary directory and confirmed that `HookMetadata` includes `enabled`,
-`currentHash`, `sourcePath`, and `trustStatus`; the trust enum is `managed`,
-`untrusted`, `trusted`, or `modified`. A short-lived stdio probe also returned
-those fields without changing Hook configuration. No generated schema or raw
-probe output is retained in the repository because real results contain local
-paths and command definitions.
+CodexSessionReconciler merges this projection with the live Hook snapshot.
+Hook jump context is retained, actual pending decisions remain authoritative,
+and approving/denying cannot be undone by an older connector snapshot.
+Cancellation and generation checks fence late monitor results across
+disable/re-enable and shutdown.
 
-The shipping probe starts only the `codex` binary embedded in an installed
-`com.openai.codex` application signed by OpenAI team `2DC432GLL2`. It does not
-search PATH or run package-manager shims. The child receives a minimal
-environment and exactly `app-server --stdio`, followed by `initialize`,
-`initialized`, and `hooks/list` for the current home directory.
+## Real approval Hooks and in-island authorization
 
-The request is capped at 64 KiB, the response at 2 MiB, and the complete
-exchange at three seconds. The shipping path no longer uses Foundation
-`Process`, a reader thread, a semaphore, or run-loop completion. It launches an
-independent POSIX process group, writes stdin and drains stdout concurrently
-through nonblocking descriptors and `poll`, and uses a monotonic deadline. A
-direct child that exits without the requested response fails immediately
-instead of making Settings wait for the full timeout. Response, timeout,
-overflow, I/O failure, and early exit all terminate and reap the direct child
-and any background descendants through a bounded TERM-to-KILL sequence.
-The parent write descriptor suppresses Darwin `SIGPIPE`, so an App Server that
-closes stdin during launch becomes a local I/O failure instead of terminating
-Dev Island.
+Dev Island writes only its managed groups in ~/.codex/hooks.json, preserving
+other keys and Hooks. Lifecycle events use short loopback posts.
+PermissionRequest uses the existing bounded synchronous exchange to return
+Codex's allow/deny response. Timeout, exit or listener failure returns a
+neutral result and lets Codex use its native path. A command string, log status
+or task title never establishes an approval request.
 
-stderr is discarded, and raw request/output bytes exist only in memory until
-best-effort erasure. Dev Island ignores unrelated Hook rows and requires every
-expected source path, event, and command to match with `enabled == true` and
-`trustStatus` equal to `trusted` or `managed`. Failure or schema drift never
-upgrades the status. The process never writes config, changes trust, starts a
-Codex thread, logs output, or contacts a Dev Island service.
+Codex trust belongs to the exact definition hash. Installing a command does
+not prove authorization, and a changed command requires review again. The
+supported flow is:
 
-## Optional future full App Server mode
+1. Install/update Dev Island's managed definitions as needed.
+2. In Dev Island, open Codex authorization review and inspect every event and
+   its exact command.
+3. Click the explicit authorization control in that review.
+4. Re-read trust and show success only for the same enabled definitions.
 
-Before using App Server for thread/session control or public copy beyond Hook
-trust status, require all of the following:
+The writer is version-gated to locally verified **codex-cli 0.153.4**. It uses
+the OpenAI-signed application's bundled executable and official App Server
+config/batchWrite operation. Review obtains hooks/list metadata and the user
+configuration layer's version from config/read. Before writing, it rechecks
+commands, hashes and version, rejects expired or changed reviews, and upserts
+only those opaque keys under hooks.state with expectedVersion and
+reloadUserConfig. A fresh hooks/list must report those same commands/hashes as
+trusted; a write acknowledgement alone is not activation evidence.
+In-app authorization currently supports the default Codex home only. If
+CODEX_HOME points monitoring at another directory, authorization refuses to
+write the default home's trust records; custom-home setup remains manual.
 
-1. Pin a Codex CLI/App Server version and generated request/response schema.
-2. Start only a Dev Island-owned process and shut it down transactionally.
-3. Prove reconnect, cancellation, sleep/wake, version skew, and absent-CLI
-   behavior with a real signed-in installation.
-4. Keep local Hook mode available and reversible; App Server adoption must not
-   rewrite unrelated Codex configuration or migrate sessions silently.
+This requires the user's explicit review action. It does not silently grant
+trust, overwrite unrelated entries, alter approval_policy or sandbox mode, or
+take control of an existing Codex task. Unsupported versions retain passive
+monitoring and use manual authorization in the **Codex CLI**: open its
+**/hooks** interface, review only Dev Island's current entries, then check again
+in Dev Island. Typing /hooks into an ordinary desktop chat is not a supported
+authorization step. Do not invent a desktop Settings location that has not
+been verified in the installed version.
 
-Until those gates pass, full App Server control remains documented research,
-not a shipping session connector or a cloud connector.
+The read-only check still distinguishes installed configuration from proven
+authorization. Missing, disabled, changed, untrusted, mismatched, unavailable
+or unexpected schema results cannot report Hook authorization as connected.
+Passive monitoring and authorization are shown separately so an untrusted
+Hook does not make observable work disappear.
 
-## Official sources
+## Bounded local App Server process
+
+The boundary accepts only the bundled codex executable from an installed
+com.openai.codex application signed by OpenAI team 2DC432GLL2. It does not
+search PATH or run package-manager shims. A minimal environment, narrow stdio
+requests, finite request/response limits, nonblocking descriptors and a
+monotonic deadline bound the exchange. Response, timeout, overflow, I/O failure
+and early exit use bounded process-group cleanup. stderr is discarded; raw
+exchange bytes are not logged or retained as diagnostic output.
+
+The trust probe is read-only. The separate authorization service is the new
+writer and runs only after the reviewed user action. Neither path creates a
+task, subscribes to another server's runtime, or contacts a Dev Island backend.
+
+## What the Vibe Island references establish
+
+Public [v0.7.0 release notes](https://github.com/edwluo/vibe-island-updates/releases/tag/v0.7.0)
+describe Codex JSONL session monitoring alongside automatic Hook setup, and
+[v1.0.33](https://github.com/edwluo/vibe-island-updates/releases/tag/v1.0.33)
+describes one-click authorization. These establish advertised behavior, not
+access to product source or proof of its internal authorization mechanism.
+Dev Island is independently implemented from the observed local Codex schema
+and verified vendor protocol. We do not claim that Vibe Island is exempt from
+trust or that its private implementation was copied.
+
+## Remaining acceptance
+
+- Verify new and older resumed desktop tasks appear while Hooks are untrusted,
+  with correct response-finished/interrupted behavior.
+- Review exact commands in the island, authorize on the supported version and
+  prove Codex accepts those same definitions after the write.
+- On the current packaged candidate, trigger a real approval and click
+  **Allow** once; prove the requested command continues and bind the
+  receipt/screenshots to that candidate.
+- Repeat with **Deny**, proving Codex refuses that request; exercise native
+  fallback for timeout or listener failure.
+- Verify monitoring opt-out, restart, cancellation and unsupported-version CLI
+  fallback without changing the user's approval/sandbox preferences.
+
+These real integration checks remain outstanding. Green unit tests, old-version
+receipts or a waiting-card screenshot do not establish the current candidate's
+complete approval round trip.
+
+## Sources
 
 - [Codex Hooks](https://learn.chatgpt.com/docs/hooks)
 - [Review and trust Hooks](https://learn.chatgpt.com/docs/hooks#review-and-trust-hooks)
-- [Codex Hook configuration locations](https://learn.chatgpt.com/docs/config-file/config-advanced#hooks)
+- [Hook configuration locations](https://learn.chatgpt.com/docs/config-file/config-advanced#hooks)
 - [Codex App Server](https://learn.chatgpt.com/docs/app-server)
 - [Codex SDK](https://learn.chatgpt.com/docs/codex-sdk)
 - [Codex Cloud](https://learn.chatgpt.com/docs/cloud#getting-started)

@@ -1,9 +1,13 @@
 # Codex-Plan — Dev Island 当前目标与验收计划
 
-> 当前快照：2026-08-31 · 产品版本：v0.3.0 · 当前分支基线：`97e579e`
+> 当前快照：2026-09-04 · 产品版本：v0.4.0（发版准备中） · 主分支基线：`8601d26`
 >
 > 本文取代 2026-08-05 的 v0.2.2 旧快照。旧文档中的通知、跳回、审批、历史、
 > Sparkle、License、CI、状态音和新连接器等缺口已经完成，不再作为当前待办。
+>
+> Codex 接入设计更新于 2026-09-06，见文末「只读任务监测与真实审批分离」及
+> [接入记录](codex-integration-field-notes.md)。此前“打开 Desktop 并发送 `/hooks`”
+> 的引导已被替换；旧章节中的版本、测试数字和验收记录只对应当时的源码快照。
 
 ## 一、长期目标
 
@@ -2434,3 +2438,172 @@ Dependabot security updates 六项控制；未经明确授权未修改远端设�
 - [ ] Claude Code 用量洞察未做：Claude Code 本地只写 token 计数，不写服务商额度窗口；按「不把推测值
   包装成官方额度」原则，暂不实现。
 - [ ] 快捷键真机按键、分支标签与今日汇总的真实视觉、VoiceOver 及 Welcome 第四步真实命令验收仍待解锁。
+
+## 2026-09-05 一次连接、持续在线：托管启动器 + 心跳 + 一步信任
+
+- [x] 当时观察到 Dev Island 的 5 条内联 curl Hook 未信任，Codex 跳过这些定义，岛无法通过
+  Hook 收到事件。这只说明当时 Dev Island 通道未激活；不能据此推断 Vibe Island 的内部
+  授权实现或它是否完全依赖 Hooks。公开发布说明只证明其对外声明的行为。
+- [x] `72a797d` 启动器构件：`LocalHooksInstaller.launcherScript()` 从注册表渲染无模板变量的静态
+  `sh`；`LocalHookLauncher` 以 `0700`/单链接/字节精确安装到 `island-app/bin/dev-island-hook`，
+  stale 原地修复、unsafe 只报告；生产监听器在授权轮换后非致命自愈；两个 QA 隔离门禁禁止它出现。
+- [x] `e54811a` 翻转配置行：所有命令式 Hook 固定为 `"${HOME}/…/bin/dev-island-hook" --route
+  /hooks/<source> --event <Event> --port 7824 || true`；`/hooks/<source>` 继续作 marker，JSON 安装
+  先清全部事件下的管理条目；真实回环 harness 在隔离 HOME 装启动器跑真实行；契约 v6.90.0。
+- [x] `904f620` 心跳：`LocalAgentActivityProbe` 只读 Codex/Claude Code 会话文件的类型与 mtime，
+  `TaskStore` 记录每 source 最后事件时间，按需（展开/菜单/Settings）推导 not-reporting；空闲岛、
+  状态菜单与 Settings 提示"X 正在运行但没有向岛汇报"并给出下一步；契约 v6.91.0。
+- [x] 当时实现过 Settings 与 Welcome 的“打开 Codex 并复制 /hooks”入口；该 Desktop 引导不可靠，
+  已由下述岛内精确命令审阅/授权流程替换。`/hooks` 只保留为不支持版本的 Codex CLI 手动回退。
+- [x] 当前源码 **940 tests / 0 failures**；Localization、Legal/Data Flow、Performance、Release
+  Foundation、Hermetic listener 门禁 PASS；Security 门禁只剩三份 0.3.0 回执的已知失败。
+- [ ] 迁移语义：升级后旧 curl 行显示 update-required，需要更新为当前托管定义并重新审阅信任。
+  当前候选的真实 Codex Allow/Deny 闭环仍待实机，不能由旧回执或自动化测试替代。
+
+## 2026-09-06 只读任务监测与真实审批分离
+
+本节记录当前开发工作树的实现，不表示已发布或已通过真实审批验收。Codex 的基础任务可见性
+独立于 Hook 信任，审批动作仍只来自 Codex 真实同步请求。
+
+- [x] 默认启用只读 JSONL 监测，从本地 Codex sessions 目录发现任务。近期目录快速刷新，
+  有界遍历更早的日期目录，以发现“旧任务今天重新打开”仍使用原日期 rollout 的情况。
+  不启动 Codex 任务，不修改其 sandbox 或 approval policy；关闭监测不关闭审批 Hooks。
+- [x] 读取、目录遍历、文件数和单行均设上限；大文件只读元数据头与近期尾部，跳过区间时清除
+  旧 turn 顺序状态。部分行等待换行，畸形或超大行丢弃，使用 descriptor/no-follow 读取。
+- [x] `session_meta` 本身不制造 Running；排除 subagent、memory、chronicle 等辅助会话。
+  识别真实用户消息、task/item 生命周期、回复结束与中断；旧 turn 的终结事件不能覆盖新 turn。
+  工具单次失败不等于整轮失败，回复结束与整个任务完成在文案中区分，中断不显示成功完成。
+- [x] 状态时间来自记录的实际事件时间，不用读取时间或 mtime 复活历史。未来时间在状态变更前
+  被拒绝，避免污染后续排序；初次发现不重放完成通知。已停滞 Running 与终结记录按时效移除。
+- [x] 只保留有界任务投影：标识、合法绝对工作目录、状态、阶段和时间，以及最多 120 字符/
+  512 UTF-8 字节的首条人工消息标题或项目名。该标题可进入现有本地历史；完整 prompt、
+  transcript、reasoning 和工具输出不作为任务历史保存或上传。
+- [x] 日志不推断待审批，也不生成 Allow/Deny。日志与 Hook 以同一会话合并；真实待决请求覆盖
+  只读状态，点击决定后的状态不能被旧 Hook snapshot 恢复成等待，取消/重启使用代际保护。
+- [x] 岛内提供事件及精确命令的审阅，然后由用户点击授权。通过已验证 OpenAI 签名的本地
+  Codex App Server 调用 `hooks/list`、`config/read`，重新校验当前命令/hash/config version，
+  再以官方 `config/batchWrite` 和 `expectedVersion` 只更新对应 `hooks.state`；写后重新验证。
+  自动检查不等于用户授权，写入成功响应不等于精确 Hook 已被 Codex 接受。
+- [x] 授权写入目前只支持已验证的 `codex-cli 0.153.4`。其他版本继续提供被动监测，授权回退到
+  **Codex CLI** 的 `/hooks`，完成后在岛内重新检查；普通 Desktop 对话中的 `/hooks` 不作为指引。
+- [x] 借鉴边界明确：Vibe Island v0.7.0 / v1.0.33 公开发布说明分别声明 JSONL 监测与一键授权；
+  这些说明不代表取得产品源码，也不能证明其底层如何写信任。当前实现依据 Codex 的本地结构
+  与已验证官方协议独立完成。来源与运行边界见 [接入记录](codex-integration-field-notes.md)。
+- [ ] 重新打包当前候选后，验证 Hooks 未信任时新任务和旧任务重开仍能显示，检查运行、回复结束、
+  中断、关闭监测及重启恢复的真实表现。
+- [ ] 在支持版本上实际完成岛内精确命令审阅 → 授权 → 重新验证；不把模拟 transport 测试算作
+  对用户真实配置的写入验收，也不宣称已自动替用户授予信任。
+- [ ] 为当前打包候选完成真实 **Allow** 和 **Deny**：分别核对 Codex 实际继续/拒绝执行，补齐
+  与候选版本和构建绑定的回执及截图，并验证超时/监听器失败回到原生审批。旧版本回执不抵扣。
+- [ ] 主 agent 完成当前源码的统一测试、门禁、构建与上述验收后，再更新对应证据；本节不修改
+  历史测试数字，不创建提交，也不声称已有新的通过回执。
+
+## 2026-09-11 会话监控改为事件驱动
+
+`6a490aa` 的只读监控用 1 秒 / 3 秒 `Task.sleep` 轮询，与“稳态不轮询、空闲唤醒受测”的原则
+冲突（无 Codex 的机器也会每 3 秒打开一次根目录）。本节在合入发版分支前把读取时机改为事件驱动，
+读取内容与合并规则不变。
+
+- [x] `CodexSessionLogWatcher`：单条 FSEvents 订阅（目录级，`NoDefer | WatchRoot`，1 秒合并），
+  回调只看标志位，不请求、不读取、不记录事件路径；根缺失时盯父目录 `~/.codex`，根出现后
+  自动切换；父目录也缺失时不向上盯任何目录，等待 `refresh()`。实测 30 次连续追加只触发 2 次回调。
+- [x] `CodexSessionChangeSignal` + `CodexSessionMonitorSchedule`：突发折叠为一次唤醒；只有
+  已显示记录到期（运行中 30 分钟 / 已结束 2 小时）或上一轮预算未读完时才设截止，否则一直睡。
+- [x] `TaskStore`：移除轮询；FSEvents 不可用时状态降为“无法读取”而不是偷偷回退定时器；
+  Codex Hook 快照在监控 `.notFound` 时唤醒一次，刚安装的 Codex 立即被发现。
+- [x] 门禁与文档：安全/性能门禁固定新设计与回归测试；契约 v6.93.0；PRIVACY 中英与数据流清单
+  改为“仅在系统报告变化或记录到期时读取”。
+- [x] 2026-09-12 各自单独运行、10 秒预热、45 秒采样的短时观察：旧轮询候选 `6a490aa`
+  平均 CPU 1.279%、package-idle 唤醒 0.864/s、写盘 73,728 B；新事件驱动 `15d7469`
+  平均 CPU 0.631%、package-idle 唤醒 0.089/s、写盘 0。复核发现 observer 只比较启动时枚举
+  文件中最新三组mtime/size，不覆盖新文件；不能证明全树无会话变化，也未证明余下唤醒来自UI。
+  原始数据与协议保留于 `CodexFiles/DevIsland-Optimization/qa/release-0.4.0-candidate-20260912/idle-comparison/`。
+- [ ] 用完整metadata差分及一致显示/负载条件补受控空闲对照，不能把上述短时观察算作已通过。
+- [x] 2026-09-12 本机Hook信任写入已完成：辅助工具复用 `CodexHookAuthorization.review()` → `authorize(_:)` 同一代码路径
+  （签名 CLI 0.153.4 App Server），审阅记录与授权输出存于 `evidence/live-0.4.0/hook-authorization-*-20260912.txt`；
+  写入后复核 `alreadyAuthorized = true`，`local-hook-status` 报告 `codex=connected`。只新增 Dev Island
+  五条 `trusted_hash`（`*:1:0` 与 `session_end:0:0`），Vibe Island 的记录未动。
+- [ ] Allow / Deny / 无障碍三份 0.4.0 实机回执仍需真实操作。旧Deny prompt和截图循环存在格式及
+  session绑定问题，保留历史但不再使用；新的精确prompt、独立工作区及preflight位于外置证据目录
+  `evidence/live-0.4.0/attempt-20260912T141344Z/`。真实任务须workspace-write + on-request，
+  审批由用户在对应岛卡片点击。新候选原生UI和只读CLI已复核Hook授权，无需重复写入信任。
+
+### 2026-09-11 当前候选重建与运行验证
+
+- [x] 首轮定向测试实际复现深层目录缺失后监听无法恢复。订阅改为绑定真实目录的 device/inode；
+  无目录时保持休眠，后续刷新可恢复失败订阅，重订阅后补信号覆盖间隙写入。
+- [x] 文件变化强制有界发现旧日期目录，修复十秒缓存窗口内重开的未缓存任务可能永久漏显示。
+  取消或超时的审批立即释放已缓存终态，历史仍由原监控 owner 发布。
+- [x] 58 项定向、1029 项全量测试零失败；版本探针 20 轮、hermetic listener 10 轮、tmux 20 轮、
+  Codex trust 5 轮、sleep/wake 20 轮全部通过。Localization、Legal/Data Flow、Performance、
+  Repository Script Syntax、Release Foundation 与最终 diff whitespace 检查通过。
+- [x] T7 新 Universal Production App 完成六个 Mach-O 双架构、依赖闭包、strict deep ad-hoc
+  签名验证；八样本隔离启动 smoke 正常 AppKit 退出且 status 0。
+- [x] 已退出 9/6 旧包并运行新包；真实 UI 显示当前 DevLand、旧 joint 两个运行中会话及一个
+  已结束回复。监控 off/on 显示正确停止/恢复状态，新包退出重启后恢复会话与监听器，偏好恢复开启。
+- [ ] 旧、新进程的短时 CPU/唤醒采样存在真实 Codex 活动，不作为受控空闲能耗对照；仍需补足
+  无新事件时的同负载测量，以及新建任务、实际回复结束/中断的完整实时走查。
+- [ ] 完整 Security 仍停在 0.3.0 Allow 回执与 0.4.0 VERSION 不符；没有修改旧回执或执行 Hook
+  授权。当前候选的真实授权、Allow/Deny 与无障碍验收继续独立待办。
+- [x] 候选：`/Volumes/T7 Shield/MacMini/CodexFiles/DevIsland-Optimization/qa/codex-event-monitoring-20260911/build/Dev Island.app`
+- [x] 主程序 SHA-256：`2260e3676cba429010ffb0152aabf1380a9932872f486993e237f83bcb9412e7`
+- [x] 本轮证据：`/Volumes/T7 Shield/MacMini/CodexFiles/DevIsland-Optimization/qa/codex-event-monitoring-20260911/`
+
+
+### 2026-09-11 持续打开的 writer 漏更新修复
+
+- [x] 真机确认目录 FSEvents 和 FileEvents 均可能等 writer 关闭才通知：十秒内真实
+  4 个文件增加 26,604 bytes，两种流均零回调。先前 v1 的 0.226% CPU 不能证明优化。
+- [x] 保留目录发现，为最多 64 个已发现候选补充事件专用 vnode 订阅；逐级 no-follow 与
+  device/inode 验证，统一一次性合并窗口，无周期轮询。取消回调关闭各自描述符，建立后补读。
+- [x] 保持同一 writer 打开的两次 append 回归先失败后通过；62 项定向 / 1033 项全量零失败，
+  authoritative 五组稳定性测试通过；五项常规门禁通过，契约与法律门禁版本同步到 v6.94.0。
+- [x] 新 Universal production 构建与八样本隔离启动通过。真机会话在同一 inode 保持 writer
+  打开时继续更新来源时间；关闭监控释放全部 64 个文件描述符，重新开启恢复；正常退出及
+  重启后两条运行中会话和监听器恢复。监控偏好保持开启，Hook 尚未授权。
+- [x] 新包：证据根目录下 `build-open-writer-fix/Dev Island.app`；主程序 SHA-256：
+  `52f648568553f4f889e54a9ee8545abfac2f778f3994fd6b22cdb7694fd5bea7`。
+- [ ] 完整 security 仍停在旧 Allow 回执版本，真实回复结束/中断、新建任务、Hook 授权、
+  Allow/Deny 与无障碍验收不由本轮单元测试抵扣。详见证据目录 `VALIDATION_OPEN_WRITER_FIX.md`。
+
+- [x] 真实新版 Desktop 使用 `source=vscode`；仅为已核对的 CLI0.153.4 增加解析兼容分支，
+  保留身份及所有审批证据门槛。独立70项合成回归通过，已接到旧receipt门禁之前；不代表真实
+  授权/决定验收完成。脚本清单同步为54 Bash / 28 Ruby / 9 Swift。
+
+- [x] 2026-09-12 合并前五视角评审后的修正（契约 v6.95.0）：解析器改写稳定阶段标记，紧凑岛条与通知
+  正文不再出现未本地化英文；用户自己中断不再弹"需要关注"通知；快速扫描同时覆盖本地日期目录
+  （Codex 实际按本地日期命名）；历史 SQLite 只在语义变化时重写；监控循环 `.utility` 优先级；
+  授权表单说明写入 `config.toml`、Esc 取消、后台定位 CLI 后才显示复制按钮；`CODEX_HOME`
+  不一致有独立错误；readiness 与授权统一钉 `codex-cli 0.153.4`；`Package.resolved` 恢复 CI 解析
+  结果以免 `swift package resolve && git diff --exit-code` 在 macos-15 上失败；删除 5 个已无引用的
+  文案键。
+- [ ] 待产品决定：被动监测默认开启且首条用户消息可作为标题进入通知与历史（PRIVACY 已披露），
+  是否改为默认只用目录名 / 通知不带标题；透明卡片与 Hook 卡片是否加区分标记。
+- [ ] 无日志输入窗口尚未取得：controller静默45秒、无编译、屏幕解锁，30秒样本仍有3文件
+  增长366,465 bytes（FSEvents仍零事件），metadata正确判无效。活动CPU0.543%不作空闲
+  能耗或旧新优化比例；未停止其他用户任务。完整Security已通过新增70项后停在原旧回执。
+
+## 2026-09-13 设置窗口重设计：米白玻璃 + 点阵
+
+owner 看过三版稿后定稿：窗口用 logo 的米白外层，岛保持墨黑内层；材质按 macOS 26 的玻璃做；
+状态标记多用产品自己的九点点阵。本节只改 App 层，不改 TaskStore 公开 API，不算 `[S][contract]`。
+
+- [x] `Palette.Window`：米白底 `#EFEBE2`、墨黑 `#141414`、暖灰次要/提示文字、玻璃与发丝线，
+  以及为浅底加深过的琥珀/朱红/语义色。`WindowPaletteTests` 钉住对比度：主文字 ≥7:1，
+  次要文字 ≥4.5:1，提示灰 3–4.5:1，Increase Contrast 在浅底上是加深而不是提亮。
+- [x] 设置窗口改为 `.aqua` + `.fullSizeContentView`，侧栏是浮起的玻璃面板（`.thinMaterial` +
+  白 58% + 发丝线 + 顶部高光），窗口底是带两处柔光的米白渐变；所有按钮改胶囊，整页只有
+  一个黑胶囊，落在"需要处理"那一行。
+- [x] 设置 › Agent 按状态分组（已连接 / 需要处理 / 未连接 / 云端），分组来自一次只读的
+  `LocalAgentHookDiagnostics.snapshotResolvingVendorActivation()`；每行一句人话状态、一个动作；
+  已连接的行展开成内嵌面板（Codex 的任务活动开关、审批命令查看、断开）。搜索框、"停用"
+  橙色按钮、Codex 专属开关块和顶部诊断卡都撤掉，诊断卡改到页脚"岛上没反应？"。
+- [x] 每行的前导标记是 `AnimatedDotMatrixMark`：已连接 = 墨黑块上的米白 plus 阵、需要处理 =
+  琥珀块上的 ring 呼吸、未连接 = 玻璃块上的暗 field、检查中 = orbit；心跳与监听器提示也用点阵。
+- [x] 授权表单、法律文档表单、历史列表跟随窗口色板；`LocalAgentConnectionRowsPresentation`
+  负责分组/状态句/汇总行并有测试；安全门禁改钉 `Palette.Window.stateRunning` 并新增分组不变量。
+- [x] 欢迎引导窗口同步换到米白玻璃：窗口底用同一 `WindowCanvas`，舞台面板改玻璃，
+  黑色小岛样本与终端命令行保留岛的墨黑与暖白（`stageSignal(onDark:)`），四页固定几何不变；
+  连接页的 Agent 格子用 `AgentStateTile` 点阵，主按钮改黑胶囊、次按钮改玻璃胶囊。
+- [ ] 真机走一遍：展开/收起、授权表单、Cursor 更新连接、断开全部；系统深色外观下的观感。
+

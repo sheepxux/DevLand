@@ -47,7 +47,9 @@ enum TaskNotificationKind: Equatable {
         switch transition.newStatus {
         case .waiting where attentionRequired:
             return .waiting
-        case .failed where attentionRequired:
+        // The user stopping a Codex response is not something to alert them
+        // about; a genuine failure still is.
+        case .failed where attentionRequired && !CodexSessionPhase.isInterruption(transition.task.currentPhase):
             return .failed
         case .completed where completions && oldStatus != .completed:
             return .completed
@@ -56,7 +58,14 @@ enum TaskNotificationKind: Equatable {
         }
     }
 
-    func title(language: DevIslandLanguage = .current) -> String {
+    func title(source: String? = nil, language: DevIslandLanguage = .current) -> String {
+        if source == "codex" {
+            switch self {
+            case .completed: return L10n.string("Response finished", language: language)
+            case .failed: return L10n.string("Response interrupted", language: language)
+            case .waiting: break
+            }
+        }
         let key: String
         switch self {
         case .waiting:   key = "Task Needs Input"
@@ -284,7 +293,7 @@ public final class TaskNotifier: NSObject, UNUserNotificationCenterDelegate {
         }
 
         let content = UNMutableNotificationContent()
-        content.title = kind.title()
+        content.title = kind.title(source: task.source)
         content.subtitle = sourceDisplayName(task.source)
         content.body = body(for: kind, task: task)
         let soundsEnabled = UserDefaults.standard.bool(
@@ -315,11 +324,12 @@ public final class TaskNotifier: NSObject, UNUserNotificationCenterDelegate {
     }
 
     private func body(for kind: TaskNotificationKind, task: AgentTask) -> String {
+        let phase = CodexSessionMonitoringPresentation.displayPhase(for: task)
         switch kind {
         case .waiting:
-            return task.waitingMessage ?? task.currentPhase ?? task.title
+            return task.waitingMessage ?? phase ?? task.title
         case .failed:
-            return task.currentPhase ?? task.title
+            return phase ?? task.title
         case .completed:
             return task.title
         }

@@ -3,7 +3,7 @@
 > Engineering-verified draft for owner and legal review. This file is not a
 > substitute for legal advice and has not been published as a new policy.
 
-Last updated: August 31, 2026
+Last updated: September 6, 2026
 
 Dev Island is a local-first macOS application. The Dev Island maintainers do
 not operate an account system, advertising network, product-analytics service,
@@ -53,7 +53,7 @@ fixed browser-preflight marker and a separate 256-bit random authorization
 value that rotates whenever the listener starts or retries. The value is kept
 only in memory and in the current user's private
 `~/Library/Application Support/island-app/local-hook-authorization.header`
-file (maximum 128 bytes, mode `0600`). Managed curl commands read that file
+file (maximum 128 bytes, mode `0600`). The managed Hook launcher reads that file
 directly, and the OpenCode plugin stores only its path and reads a bounded
 slice. The value is never written into Agent configuration, plugin source,
 process arguments, SQLite, logs, copied/saved diagnostics, or a remote service.
@@ -73,6 +73,42 @@ only the aggregate activation result for Dev Island's exact definitions leaves
 the probe. The response is not networked, persisted, logged, or copied to
 diagnostics and is best-effort erased from memory after the check. The probe
 cannot modify configuration or trust, and it does not start a Codex thread.
+Separately, **Review and Authorize** shows only Dev Island's exact Hook commands
+and events for explicit user confirmation. On a supported signed Codex version,
+that action reads the user configuration revision, rechecks the reviewed
+definitions, and asks the official local `config/batchWrite` API to save only
+their vendor-provided trust keys and hashes. Revision checks reject concurrent
+configuration changes, and a fresh `hooks/list` verifies the result. Other
+Hook trust records remain intact. Opening Settings or monitoring tasks never
+authorizes Hooks. Review contents and configuration responses stay in memory;
+only the consent records are saved in Codex's own configuration.
+
+**Codex task monitoring is independent of Hooks and enabled by default.** It
+reads bounded local session JSONL records under `~/.codex/sessions`, including
+older conversations that were recently resumed (or under `$CODEX_HOME/sessions`
+when that variable names an absolute path). Files are read
+only when macOS reports a change under that directory (one filesystem-event
+subscription plus event-only watches on at most 64 already-discovered files,
+coalesced within one second), a shown row is due to expire,
+or a pending bounded read or monitoring recovery needs to finish. There is no
+periodic polling timer. Each pass reads at most 2 MiB from at most 64
+files, and directory discovery examines at most 8,192 entries and skips
+symbolic links. File watches retain only candidate paths and event-only
+descriptors in memory while monitoring is enabled; they do not read contents.
+Change callbacks never record event paths. Between passes the monitor keeps at
+most one unterminated record (up to 256 KiB) and a 128-byte identity prefix per
+tracked file in memory, nothing on disk. Raw records may transiently contain conversation content;
+only session ID, project directory, source timestamps, response status, and a
+title of at most 120 characters / 512 UTF-8 bytes are retained. The title may
+come from the first user message and can enter the existing local task history
+and user-enabled notifications. This excerpt can contain whatever the user
+wrote, including sensitive text. The feature does not separately extract or
+store complete prompts, assistant responses, reasoning, tool arguments, or
+credential fields, and does not transmit session content.
+Settings can disable monitoring and clear its live observations; existing task
+history follows its existing retention controls. Logs never create approval
+requests, and pending real Hook decisions always take precedence. Historical
+discovery is silent; archived session files are not restored.
 The explicit `local-live-readiness` engineering command checks only known
 local executables, caps version stdout at 4 KiB, discards stderr, and erases
 the captured bytes after comparing a semantic-version token with the reviewed
@@ -136,6 +172,15 @@ HOME, or unrelated inherited environment; stdout is memory-only, capped at
 progress events can be stored locally in:
 
 `~/Library/Application Support/island-app/tasks.sqlite`
+
+**Hook heartbeat reads dates, never sessions.** To notice when a connected
+agent is working but its hooks have silently stopped reporting (for example a
+Codex hook that is no longer trusted), Dev Island compares the newest
+modification date of that agent's own session files (`~/.codex/sessions`,
+`~/.codex/archived_sessions`, `~/.claude/projects`) with the last hook event it
+received. It enumerates at most 8,192 directory entries, reads only file type
+and modification date, never opens a session file, and keeps only a
+reporting/not-reporting/idle/unknown state in memory.
 
 **Project branch labels stay on your Mac.** To show which git branch a local
 agent session is working on, Dev Island reads at most 4 KiB from the `.git`
@@ -556,7 +601,7 @@ data flow before the corresponding feature ships. Questions can be sent to
 > 这是经过工程实现核对的草案，仍需产品负责人及法律专业人士审阅；目前尚未作为
 > 新版线上政策发布，也不构成法律意见。
 
-最后更新：2026 年 8 月 31 日
+最后更新：2026 年 9 月 6 日
 
 Dev Island 是一款本地优先的 macOS 应用。维护者没有为 App 运行账号系统、广告
 网络、产品分析服务或由开发者控制的崩溃上报服务。但当用户主动启用某些功能时，
@@ -590,7 +635,7 @@ SQLite、日志、历史页面或复制的诊断。点击 tmux 会话时只把�
 所有会改变本地会话状态的 Hook 请求还必须同时携带固定的浏览器预检标记，以及每次
 监听启动或重试都会轮换的 256-bit 随机授权值。该值只短暂存在于内存和当前用户私有的
 `~/Library/Application Support/island-app/local-hook-authorization.header` 文件中；文件
-最多 128 bytes、权限为 `0600`。托管 curl 命令直接通过 Header 文件读取，OpenCode 插件
+最多 128 bytes、权限为 `0600`。托管 Hook 启动器直接通过 Header 文件读取，OpenCode 插件
 只保存路径并有界读取。授权值不会写入 Agent 配置、插件源码、进程参数、SQLite、日志、
 复制/保存的诊断或任何远程服务。这会阻止同一台 Mac 上的其他用户伪造 Hook；当前登录
 用户下能够读取该文件的进程仍属于本地用户信任边界。
@@ -606,6 +651,29 @@ Server，仅调用 `hooks/list` 检查自身 Hook 是否已启用并受信任。
 其他 Hook 的元数据，但只有 Dev Island 精确定义的汇总激活结果会离开探针；原始响应
 不会联网、持久化、记录日志或进入诊断，并会在检查后尽力从内存清除。该探针不能修改
 配置或信任，也不会创建 Codex 线程。
+另一个由用户主动触发的“查看并授权”流程会显示 Dev Island 自己的精确 Hook 命令与
+事件。用户确认后，受支持的 OpenAI 签名 Codex 版本会通过本机 `config/batchWrite`
+保存这些条目的官方信任键与哈希；写入前重新核对定义并校验配置版本，写入后重新读取
+`hooks/list` 验证结果，保留其他 Hook 的信任记录。打开设置或监测任务不会自动授权。
+审阅内容和配置响应仅暂存在内存，只有用户确认的信任记录写入 Codex 自己的配置。
+
+**Codex 任务监测默认开启，独立于 Hook。** 它有界读取 `~/.codex/sessions` 下的本地
+JSONL（当 `CODEX_HOME` 指向绝对路径时读取 `$CODEX_HOME/sessions`），包括近期继续对话的
+旧任务。仅在 macOS 报告该目录发生变化（单条文件系统事件
+订阅及最多 64 个已发现文件的事件专用监听，在一秒内合并）、某条已显示的记录到期，
+或需要完成有界补读、监控恢复时才读取；
+不设周期性轮询定时器。每轮最多
+读取 64 个文件、2 MiB 内容；目录发现最多检查 8,192 项并跳过符号链接。文件监听仅在监测
+开启时于内存保留候选路径与事件专用描述符，不读取内容；变化回调不记录事件路径。两轮之间
+每个被追踪文件最多在内存中保留一条未换行的记录（不超过 256 KiB）和 128 字节的身份前缀，
+不落盘。
+原始记录可能瞬时包含对话内容，但仅保留会话 ID、项目
+目录、来源时间、回复状态和最多 120 字符 / 512 UTF-8 字节的标题。标题可能取自首条
+用户消息，并进入现有本地历史与用户开启的通知；该摘录可能包含用户写入的敏感内容。
+此功能不会另外提取或保存完整提示词、回复、推理、工具参数或凭据字段，也不传输会话
+内容。设置中关闭监测会清除其实时观察；已有历史沿用原有保留
+与删除控制。日志不产生审批请求，真实待处理的 Hook 审批始终优先。历史发现保持静默，
+不从归档目录恢复会话。
 
 只有在用户显式运行工程诊断命令 `local-live-readiness` 时，Dev Island 才会对已知
 本地 Claude Code/Codex 可执行文件执行有界的版本检查，并向本机 Hook 监听器发送
@@ -642,6 +710,12 @@ document；渲染块、request/operation ID 与进度状态只存在于内存，
 512 KiB 尾部；文件并发增长不能扩大本次读取。解码模型不包含 Prompt、回复、路径、
 账号/会话 ID 或凭据字段，只把百分比、窗口时长、重置时间与事件时间交给界面；不会
 联网、访问钥匙串、写入数据库、日志或诊断。关闭功能会清除内存摘要。
+
+**Hook 心跳只读日期，不读会话。** 为了发现已连接的 Agent 正在工作但 Hook 已悄悄停止汇报
+（例如 Codex 中不再受信任的 Hook），Dev Island 会把该 Agent 自己会话文件的最新修改时间
+（`~/.codex/sessions`、`~/.codex/archived_sessions`、`~/.claude/projects`）与最后一次收到的
+Hook 事件做比较。它最多枚举 8,192 个目录项，只读取文件类型与修改时间，从不打开会话文件，
+内存中只保留正常/未汇报/空闲/未知四种状态。
 
 **项目分支标签只留在你的 Mac 上。** 为了显示本地 Agent 会话正在哪个 git 分支上工作，
 Dev Island 只会通过属于当前用户的 no-follow descriptor，从该会话项目目录（最多向上查找

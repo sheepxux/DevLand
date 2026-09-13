@@ -526,7 +526,7 @@ struct LegalDocumentSheet: View {
             header
 
             Rectangle()
-                .fill(Palette.hairline)
+                .fill(Palette.Window.hairline)
                 .frame(height: 1)
 
             if let presentation {
@@ -543,15 +543,15 @@ struct LegalDocumentSheet: View {
             }
 
             Rectangle()
-                .fill(Palette.hairline)
+                .fill(Palette.Window.hairline)
                 .frame(height: 1)
 
             footer
         }
         .frame(width: 640, height: 540)
-        .background(Palette.tourCanvas)
-        .foregroundStyle(Palette.warmWhite)
-        .preferredColorScheme(.dark)
+        .background(Palette.Window.canvas)
+        .foregroundStyle(Palette.Window.ink)
+        .preferredColorScheme(.light)
         .onAppear {
             loadIfNeeded()
         }
@@ -568,12 +568,12 @@ struct LegalDocumentSheet: View {
                 Text(L10n.string("LEGAL · LOCAL COPY", language: language))
                     .font(.system(size: 9.5, weight: .semibold, design: .monospaced))
                     .tracking(0.9)
-                    .foregroundStyle(Palette.textTertiary)
+                    .foregroundStyle(Palette.Window.textTertiary)
 
                 Text(presentation?.title ?? kind.buttonTitle(language: language))
                     .font(.system(size: 21, weight: .semibold))
                     .tracking(-0.45)
-                    .foregroundStyle(Palette.warmWhite)
+                    .foregroundStyle(Palette.Window.ink)
             }
 
             Spacer(minLength: 16)
@@ -596,7 +596,7 @@ struct LegalDocumentSheet: View {
             LazyVStack(alignment: .leading, spacing: 16) {
                 Text(presentation.lastUpdated)
                     .font(.system(size: 10.5, weight: .medium, design: .monospaced))
-                    .foregroundStyle(Palette.textTertiary)
+                    .foregroundStyle(Palette.Window.textTertiary)
                     .accessibilityLabel(presentation.lastUpdated)
 
                 ForEach(Array(presentation.blocks.enumerated()), id: \.offset) { _, block in
@@ -620,7 +620,7 @@ struct LegalDocumentSheet: View {
                     weight: level == 2 ? .semibold : .medium
                 ))
                 .tracking(level == 2 ? -0.15 : 0)
-                .foregroundStyle(Palette.warmWhite)
+                .foregroundStyle(Palette.Window.ink)
                 .padding(.top, level == 2 ? 8 : 2)
                 .accessibilityAddTraits(.isHeader)
 
@@ -628,19 +628,19 @@ struct LegalDocumentSheet: View {
             Text(LegalDocumentLinkPolicy.attributedText(text))
                 .font(.system(size: 12.25))
                 .lineSpacing(4)
-                .foregroundStyle(Palette.textSecondary)
+                .foregroundStyle(Palette.Window.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
         case .bullet(let text):
             HStack(alignment: .firstTextBaseline, spacing: 10) {
                 Text("—")
                     .font(.system(size: 10, weight: .medium, design: .monospaced))
-                    .foregroundStyle(Palette.textTertiary)
+                    .foregroundStyle(Palette.Window.textTertiary)
                     .accessibilityHidden(true)
                 Text(LegalDocumentLinkPolicy.attributedText(text))
                     .font(.system(size: 12.25))
                     .lineSpacing(4)
-                    .foregroundStyle(Palette.textSecondary)
+                    .foregroundStyle(Palette.Window.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .accessibilityElement(children: .combine)
@@ -648,13 +648,13 @@ struct LegalDocumentSheet: View {
         case .callout(let text):
             HStack(alignment: .top, spacing: 12) {
                 Rectangle()
-                    .fill(Palette.textTertiary)
+                    .fill(Palette.Window.textTertiary)
                     .frame(width: 1.5)
                     .accessibilityHidden(true)
                 Text(LegalDocumentLinkPolicy.attributedText(text))
                     .font(.system(size: 11.5, weight: .medium))
                     .lineSpacing(3)
-                    .foregroundStyle(Palette.textSecondary)
+                    .foregroundStyle(Palette.Window.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .padding(.vertical, 3)
@@ -670,7 +670,7 @@ struct LegalDocumentSheet: View {
                 language: language
             ))
                 .font(.system(size: 12))
-                .foregroundStyle(Palette.textSecondary)
+                .foregroundStyle(Palette.Window.textSecondary)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 360)
         }
@@ -685,7 +685,7 @@ struct LegalDocumentSheet: View {
             Text(appVersion)
         }
         .font(.system(size: 9.5, weight: .medium, design: .monospaced))
-        .foregroundStyle(Palette.textTertiary)
+        .foregroundStyle(Palette.Window.textTertiary)
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 24)
         .frame(height: 42)

@@ -21,18 +21,18 @@ struct TaskHistoryView: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-            Divider().overlay(Palette.hairline)
+            Divider().overlay(Palette.Window.hairline)
             controls
-            Divider().overlay(Palette.hairline)
+            Divider().overlay(Palette.Window.hairline)
             content
-            Divider().overlay(Palette.hairline)
+            Divider().overlay(Palette.Window.hairline)
             footer
         }
         .frame(minWidth: 640, idealWidth: 680, minHeight: 500, idealHeight: 560)
-        .background(Palette.tourCanvas)
-        .foregroundStyle(Palette.warmWhite)
-        .tint(Palette.warmWhite)
-        .preferredColorScheme(.dark)
+        .background(Palette.Window.canvas)
+        .foregroundStyle(Palette.Window.ink)
+        .tint(Palette.Window.ink)
+        .preferredColorScheme(.light)
         .task {
             guard automaticallyRefresh else { return }
             await store.refreshStoredTaskHistory()
@@ -50,7 +50,7 @@ struct TaskHistoryView: View {
                     language: language
                 ))
                     .font(.system(size: 11))
-                    .foregroundStyle(Palette.textSecondary)
+                    .foregroundStyle(Palette.Window.textSecondary)
             }
 
             Spacer()
@@ -63,11 +63,11 @@ struct TaskHistoryView: View {
                     .frame(width: 26, height: 26)
                     .background(
                         RoundedRectangle(cornerRadius: 6, style: .continuous)
-                            .fill(Palette.warmWhite.opacity(0.055))
+                            .fill(Palette.Window.ink.opacity(0.055))
                     )
             }
             .buttonStyle(.plain)
-            .foregroundStyle(Palette.textSecondary)
+            .foregroundStyle(Palette.Window.textSecondary)
             .accessibilityLabel(
                 L10n.string("Close session history", language: language)
             )
@@ -81,7 +81,7 @@ struct TaskHistoryView: View {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(Palette.textTertiary)
+                    .foregroundStyle(Palette.Window.textTertiary)
                 TextField(
                     L10n.string("Search title or agent", language: language),
                     text: $query
@@ -93,10 +93,10 @@ struct TaskHistoryView: View {
             .frame(maxWidth: .infinity, minHeight: 30)
             .background(
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(Palette.tourPanel)
+                    .fill(Palette.Window.glass)
                     .overlay {
                         RoundedRectangle(cornerRadius: 6, style: .continuous)
-                            .stroke(Palette.hairline, lineWidth: 0.75)
+                            .stroke(Palette.Window.hairline, lineWidth: 0.75)
                     }
             )
 
@@ -153,17 +153,17 @@ struct TaskHistoryView: View {
                             )
                             if index < visibleTasks.count - 1 {
                                 Divider()
-                                    .overlay(Palette.hairline)
+                                    .overlay(Palette.Window.hairline)
                                     .padding(.leading, 58)
                             }
                         }
                     }
                     .background(
                         RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .fill(Palette.tourPanel)
+                            .fill(Palette.Window.glass)
                             .overlay {
                                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                    .stroke(Palette.hairline, lineWidth: 0.75)
+                                    .stroke(Palette.Window.hairline, lineWidth: 0.75)
                             }
                     )
                     .padding(22)
@@ -176,7 +176,7 @@ struct TaskHistoryView: View {
         HStack(spacing: 12) {
             Text(historyCountCopy)
                 .font(.system(size: 10, design: .monospaced))
-                .foregroundStyle(Palette.textTertiary)
+                .foregroundStyle(Palette.Window.textTertiary)
 
             Spacer()
 
@@ -260,7 +260,7 @@ struct TaskHistoryView: View {
             if let icon {
                 Image(systemName: icon)
                     .font(.system(size: 18, weight: .regular))
-                    .foregroundStyle(Palette.textTertiary)
+                    .foregroundStyle(Palette.Window.textTertiary)
             } else {
                 ProgressView().controlSize(.small)
             }
@@ -268,7 +268,7 @@ struct TaskHistoryView: View {
                 .font(.system(size: 13, weight: .semibold))
             Text(detail)
                 .font(.system(size: 11))
-                .foregroundStyle(Palette.textSecondary)
+                .foregroundStyle(Palette.Window.textSecondary)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 360)
             if let retry {
@@ -294,8 +294,8 @@ private struct TaskHistoryRow: View {
             AgentLogoBadge(
                 source: task.source,
                 size: 28,
-                ink: Palette.warmWhite.opacity(0.82),
-                badge: Palette.warmWhite.opacity(0.045)
+                ink: Palette.Window.ink.opacity(0.82),
+                badge: Palette.Window.ink.opacity(0.045)
             )
 
             VStack(alignment: .leading, spacing: 5) {
@@ -305,7 +305,7 @@ private struct TaskHistoryRow: View {
                         : task.title
                 )
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(Palette.warmWhite)
+                    .foregroundStyle(Palette.Window.ink)
                     .lineLimit(1)
                     .truncationMode(.middle)
 
@@ -332,7 +332,7 @@ private struct TaskHistoryRow: View {
                     ))
                 }
                 .font(.system(size: 10))
-                .foregroundStyle(Palette.textSecondary)
+                .foregroundStyle(Palette.Window.textSecondary)
             }
 
             Spacer(minLength: 12)

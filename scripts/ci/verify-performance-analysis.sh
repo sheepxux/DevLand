@@ -700,6 +700,47 @@ for regression in \
     || fail "Island-window tracking regression missing: $regression"
 done
 
+# Codex session monitoring wakes on filesystem events or one expiry deadline;
+# bursts coalesce to at most one wakeup per second and an idle Codex costs none.
+CODEX_WATCHER="IslandCore/Sources/IslandCore/Connectors/Codex/CodexSessionLogWatcher.swift"
+CODEX_SCHEDULE="IslandCore/Sources/IslandCore/Connectors/Codex/CodexSessionMonitorSchedule.swift"
+CODEX_WATCHER_TESTS="IslandCoreTests/Sources/IslandCoreTests/CodexSessionLogWatcherTests.swift"
+CODEX_SCHEDULE_TESTS="IslandCoreTests/Sources/IslandCoreTests/CodexSessionMonitorScheduleTests.swift"
+CODEX_SIGNAL_TESTS="IslandCoreTests/Sources/IslandCoreTests/CodexSessionChangeSignalTests.swift"
+rg -q 'coalescingLatency: TimeInterval = 1\.0' "$CODEX_WATCHER" \
+  || fail "Codex session watcher coalescing latency must stay pinned at one second"
+for invariant in \
+  'runningRetention: TimeInterval = 30 \* 60' \
+  'endedRetention: TimeInterval = 2 \* 60 \* 60' \
+  'minimumDelay: TimeInterval = 1\.0' \
+  'if hasDeferredReads \{ return floor \}' \
+  'guard let earliest = expiries\.min\(\) else \{ return nil \}'; do
+  rg -q "$invariant" "$CODEX_SCHEDULE" \
+    || fail "Codex monitor schedule invariant missing: $invariant"
+done
+for regression in \
+  'testNoObservationsMeansNoDeadline' \
+  'testEarliestExpiryWinsAndNeverPrecedesTheMinimumDelay' \
+  'testDeferredReadsScheduleThePromptRetry'; do
+  rg -q "$regression" "$CODEX_SCHEDULE_TESTS" \
+    || fail "Codex monitor schedule regression missing: $regression"
+done
+for regression in \
+  'testAppendInsideExistingRootNotifies' \
+  'testNewDayDirectoryAndAtomicWriteNotify' \
+  'testDeeperMissingChainNeedsARefreshAndThenNotifies' \
+  'testRefreshIsANoOpWhileTheRootIsAlreadyWatched'; do
+  rg -q "$regression" "$CODEX_WATCHER_TESTS" \
+    || fail "Codex session watcher regression missing: $regression"
+done
+for regression in \
+  'testPendingSignalReturnsImmediatelyAndBurstsCoalesce' \
+  'testDeadlineWakesWithoutChanges' \
+  'testChangeWakesBeforeDeadline'; do
+  rg -q "$regression" "$CODEX_SIGNAL_TESTS" \
+    || fail "Codex change-signal regression missing: $regression"
+done
+
 [[ "$(rg -c 'TaskPresentationPolicy\.ordered' "$ISLAND_PRESENTATION")" -eq 1 ]] \
   || fail "Root-island snapshot must order sessions exactly once"
 for invariant in \

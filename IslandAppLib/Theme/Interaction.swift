@@ -171,10 +171,10 @@ private struct TourPrimaryButtonBody: View {
     var body: some View {
         configuration.label
             .font(Typo.controlLabel)
-            .foregroundStyle(Palette.tourCanvas.opacity(isEnabled ? 1 : 0.55))
+            .foregroundStyle(Palette.Window.onInk.opacity(isEnabled ? 1 : 0.55))
             .frame(width: 142, height: 36)
             .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                Capsule(style: .continuous)
                     .fill(background)
             )
             .scaleEffect(reduceMotion ? 1 : scale)
@@ -193,8 +193,8 @@ private struct TourPrimaryButtonBody: View {
     }
 
     private var background: Color {
-        if configuration.isPressed { return Palette.warmWhite.opacity(0.78) }
-        return isHovering ? Color.white.opacity(0.98) : Palette.warmWhite
+        if configuration.isPressed { return Palette.Window.inkSoft }
+        return isHovering ? Palette.Window.inkSoft : Palette.Window.ink
     }
 
     private var scale: CGFloat {
@@ -224,23 +224,23 @@ private struct TourSecondaryButtonBody: View {
         configuration.label
             .font(Typo.controlLabel)
             .foregroundStyle(
-                Palette.warmWhite.opacity(
-                    configuration.isPressed ? 0.5 : (isHovering ? 0.86 : 0.72)
+                Palette.Window.ink.opacity(
+                    configuration.isPressed ? 0.6 : 1
                 )
             )
             .padding(.horizontal, 14)
             .frame(height: 36)
             .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                Capsule(style: .continuous)
                     .fill(
-                        Palette.warmWhite.opacity(
-                            configuration.isPressed ? 0.04 : (isHovering ? 0.055 : 0.025)
+                        Palette.Window.field.opacity(
+                            configuration.isPressed ? 1 : (isHovering ? 0.95 : 0.8)
                         )
                     )
                     .overlay(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .stroke(
-                                Palette.warmWhite.opacity(isHovering ? 0.15 : 0.085),
+                        Capsule(style: .continuous)
+                            .strokeBorder(
+                                Palette.Window.hairlineStrong.opacity(isHovering ? 1 : 0.8),
                                 lineWidth: 0.75
                             )
                     )

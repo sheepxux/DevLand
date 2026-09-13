@@ -112,7 +112,6 @@
 "Usage & Limits" = "用量与限额";
 "Updates" = "更新";
 "Privacy & Support" = "隐私与支持";
-"Manage local Agent hooks and the optional Manus cloud connection." = "管理本地 Agent Hook 与可选的 Manus 云端连接。";
 "Choose how Dev Island behaves when you sign in to this Mac." = "设置 Dev Island 在你登录这台 Mac 时的行为。";
 "Reserve interruptions for moments that genuinely need your attention." = "只在真正需要你关注时打断。";
 "Read provider-authored usage windows locally, without retaining prompts." = "在本地读取服务商提供的用量窗口，不保留提示词。";
@@ -122,7 +121,6 @@
 "Welcome Tour" = "欢迎引导";
 "Quit Dev Island" = "退出 Dev Island";
 "Agent Connections" = "Agent 连接";
-"Local Agent Hooks" = "本地 Agent Hook";
 "Disconnect All…" = "全部断开…";
 "All Disconnected" = "已全部断开";
 "Disconnect All" = "全部断开";
@@ -172,8 +170,6 @@
 "Disconnect" = "断开";
 "Connect" = "连接";
 "PREVIEW" = "预览";
-"Disable" = "停用";
-"Enable" = "启用";
 "Track sessions and surface requests that need attention" = "跟踪会话，并在需要你时将请求带到前台";
 "Track sessions and handle tool approvals in the island" = "跟踪会话，并直接在灵动岛中处理工具审批";
 "Track Cursor agent lifecycle and results in the island" = "跟踪 Cursor Agent 的运行状态与结果";
@@ -218,10 +214,7 @@
 "Bring the island forward when a task needs input or fails." = "任务需要输入或失败时，将灵动岛带到前台。";
 "Task Completed" = "任务完成";
 "Optionally notify when a task finishes." = "可选择在任务完成时通知。";
-"Search agents" = "搜索 Agent";
-"Cloud Agent" = "云端 Agent";
 "Local Agents" = "本地 Agent";
-"No matching agents" = "没有匹配的 Agent";
 "Remove every Dev Island Hook while preserving user-owned configuration." = "移除所有 Dev Island Hook，同时保留用户自己的配置。";
 "No Dev Island Hooks are installed." = "当前未安装 Dev Island Hook。";
 "No Dev Island Hooks were installed." = "没有需要移除的 Dev Island Hook。";
@@ -246,15 +239,6 @@
 "Not connected — paste an API key below" = "未连接 — 请在下方粘贴 API 密钥";
 "Disconnected, but the saved key couldn’t be removed. Retry Disconnect before uninstalling." = "连接已断开，但无法移除已存储的密钥。卸载前请再次尝试断开。";
 "Check again" = "再次检查";
-"Update available" = "有可用更新";
-"Checking %@ Hook trust…" = "正在检查 %@ Hook 信任状态…";
-"Connected — Hook trust verified by %@" = "已连接 — %@ 已验证 Hook 信任";
-"Configured — review and trust the Dev Island entries in %@ %@" = "已配置 — 请在 %@ %@ 中审阅并信任 Dev Island 条目";
-"Preview connected — requests work in simulation; real CLI check pending" = "预览连接已启用 — 请求可在模拟中使用，仍待真实 CLI 验证";
-"Connected — requests can be handled in the island" = "已连接 — 可直接在灵动岛中处理请求";
-"Preview connected — real CLI acceptance pending" = "预览连接已启用 — 仍待真实 CLI 验收";
-"Connected — attention requests appear automatically" = "已连接 — 需要关注的请求会自动出现";
-"Connected — new sessions appear automatically" = "已连接 — 新会话会自动出现";
 
 /* 灵动岛状态与操作 */
 "No sessions" = "暂无会话";
@@ -429,7 +413,6 @@
 "Choose a regular file instead of a link or folder." = "请选择普通文件，而不是链接或文件夹。";
 "The diagnostic file couldn’t be written safely." = "无法安全写入诊断文件。";
 "Plays short cues through macOS notifications." = "通过 macOS 通知播放简短提示音。";
-"Try a name such as Codex, Claude, or Cursor." = "请尝试 Codex、Claude 或 Cursor 等名称。";
 "Disconnect all local agents?" = "断开所有本地 Agent？";
 "This removes only Dev Island's managed Hook commands from every local Agent configuration. Your other settings and Hooks stay in place. Manus is not affected." = "这只会从所有本地 Agent 配置中移除 Dev Island 管理的 Hook 命令。你的其他设置与 Hook 会保留，Manus 不受影响。";
 "Disconnecting all local agents" = "正在断开所有本地 Agent";
@@ -440,7 +423,6 @@
 "Couldn't disconnect local Agents. User settings were preserved." = "无法断开本地 Agent，用户设置已保留。";
 "Restarts the local Agent listener" = "重启本地 Agent 监听器";
 "Preview connector" = "预览版连接器";
-"Reads Codex Hook status without changing trust or configuration" = "读取 Codex Hook 状态，不更改信任或配置";
 "Couldn't connect to Manus. Try again." = "无法连接 Manus，请重试。";
 "API key rejected by Manus. Double-check the value." = "Manus 拒绝了 API 密钥，请再次检查。";
 "Network unavailable. Check your connection and retry." = "网络不可用，请检查连接后重试。";
@@ -485,6 +467,73 @@
 "%lldm of agent time" = "Agent 运行 %lld 分钟";
 "%lldh %lldm of agent time" = "Agent 运行 %lld 小时 %lld 分钟";
 
+/* Hook reporting heartbeat */
+"%@ is running but not reporting to the island." = "%@ 正在运行，但没有向岛汇报。";
+"Update its hook in Settings › Agents." = "在设置 › Agent 中更新它的 Hook。";
+"Hooks are not reporting" = "Hook 没有汇报";
+
+/* Guided Codex trust */
+"Dev Island entries to trust in Codex" = "需要在 Codex 中信任的 Dev Island 条目";
+
 /* Global decision shortcuts */
 "Decide from Anywhere" = "随时随地做决定";
 "Press ⌃⌥⌘Y to allow or ⌃⌥⌘N to deny the request at the front of the island while any app is active. Questions and plan reviews open the island instead." = "在任何应用中按 ⌃⌥⌘Y 允许、按 ⌃⌥⌘N 拒绝岛中排在最前的请求。问题与计划审阅会改为打开岛。";
+
+"Task monitoring works independently. To handle approvals in the island, review and authorize the Dev Island hooks." = "任务监控可独立运行。要在岛内处理审批，请审阅并授权 Dev Island 的 Hook。";
+"Review and authorize hooks" = "审阅并授权 Hook";
+"For manual setup, paste the launch command in Terminal. Then enter %@ in Codex CLI and trust only Dev Island entries." = "手动设置时，将启动命令粘贴到终端，再在 Codex CLI 中输入 %@，仅信任 Dev Island 条目。";
+"The signed Codex app could not be found. Install Codex, then try again." = "未找到签名有效的 Codex 应用。请安装 Codex 后重试。";
+"This Codex version needs manual hook review in Codex CLI." = "此 Codex 版本需要在 Codex CLI 中手动审阅 Hook。";
+"Dev Island hooks are missing, disabled, or changed. Update the connection, then review again." = "Dev Island 的 Hook 缺失、被禁用或已更改。请更新连接后重新审阅。";
+"Hooks or configuration changed during review. Close this review and try again." = "审阅期间 Hook 或配置发生了变化。请关闭此窗口后重新审阅。";
+"Authorization could not be verified. Check the connection before retrying." = "尚无法验证授权结果。请检查连接状态后再重试。";
+"Codex could not complete this request. Try again or use manual setup." = "Codex 未能完成此请求。请重试或使用手动设置。";
+"Authorize Dev Island hooks" = "授权 Dev Island Hook";
+"Allow Codex to run these Dev Island commands for task updates and approval requests on this Mac. Each tool request still follows your Codex approval settings." = "允许 Codex 在这台 Mac 上运行以下 Dev Island 命令，传递任务状态与审批请求。每次工具请求仍遵循你的 Codex 审批设置。";
+"Reading Dev Island hooks…" = "正在读取 Dev Island Hook…";
+"Launch command copied" = "已复制启动命令";
+"Copy Codex CLI launch command" = "复制 Codex CLI 启动命令";
+"Authorizing saves trust records for exactly these entries in your Codex configuration (config.toml). Nothing else is changed." = "授权只会在你的 Codex 配置（config.toml）中为这些条目保存信任记录，不会更改其他内容。";
+"Dev Island monitors a different CODEX_HOME than the one its hooks are installed in. Review the hooks manually in that Codex CLI." = "Dev Island 监测的 CODEX_HOME 与安装 Hook 的目录不同。请在该 Codex CLI 中手动审阅 Hook。";
+"Review the exact commands before authorizing Dev Island hooks" = "授权 Dev Island Hook 前先审阅具体命令";
+"Session monitoring is off" = "会话监控已关闭";
+"Waiting for a local Codex session" = "等待本地 Codex 会话";
+"Monitoring local Codex activity" = "正在监控本地 Codex 活动";
+"Local Codex sessions could not be read" = "无法读取本地 Codex 会话";
+"Send a prompt in Codex. The island reads local session activity; hook authorization is only needed for approvals." = "在 Codex 中发送一条消息，岛便会读取本地会话活动；只有审批功能才需要授权 Hook。";
+"Review and authorize the Dev Island hooks, then send a prompt in Codex." = "审阅并授权 Dev Island 的 Hook，然后在 Codex 中发送一条消息。";
+"Check session monitoring and approval authorization in Settings › Agents." = "在设置 › Agent 中检查会话监控和审批授权。";
+"For manual setup, use %@ in Codex CLI to trust only Dev Island entries. Otherwise, use Review and authorize hooks below." = "手动设置时，请在 Codex CLI 中输入 %@，仅信任 Dev Island 条目；也可以使用下方的“审阅并授权 Hook”。";
+
+"Response finished" = "本轮回复已结束";
+"Response interrupted" = "本轮回复已中断";
+"Response failed" = "本轮回复失败";
+"Codex finished this response. Session monitoring is working." = "Codex 已结束本轮回复，会话监控正常。";
+
+/* Settings › Agent (grouped rows) */
+"Cloud" = "云端";
+"Checking local Agents…" = "正在检查本地 Agent…";
+"%lld need action" = "%lld 个需要处理";
+"Needs action" = "需要处理";
+"%lld not connected" = "%lld 个未连接";
+"Not connected · one step puts its tasks and approvals on the island" = "未连接 · 一步接入，任务和审批就会出现在岛上";
+"The connection is out of date. Update it to keep approvals on the island." = "连接方式已过期，更新后审批会回到岛上。";
+"Approval hooks are installed. Authorize them to decide in the island." = "审批 Hook 已安装，授权后就能在岛上做决定。";
+"Connected (preview) · requests work in simulation" = "已连接（预览）· 请求在模拟中处理";
+"Connected · tasks and approvals show on the island" = "已连接 · 任务和审批都会显示在岛上";
+"Connected · attention requests show on the island" = "已连接 · 需要关注的请求会显示在岛上";
+"Connected · sessions show on the island" = "已连接 · 会话会显示在岛上";
+"Update connection" = "更新连接";
+"Task activity" = "任务活动";
+"Reads local session logs. Data stays on this Mac." = "读取本地会话日志，数据只留在这台 Mac。";
+"Approvals" = "审批";
+"Authorized · %lld commands" = "已授权 · %lld 条命令";
+"Arrive through the local hook in real time" = "通过本机 Hook 实时到达";
+"Attention requests arrive through the local hook" = "需要关注的请求通过本机 Hook 到达";
+"Sessions arrive through the local hook" = "会话通过本机 Hook 到达";
+"View commands" = "查看命令";
+"Show details" = "显示详情";
+"Hide details" = "收起详情";
+"Island not reacting?" = "岛上没反应？";
+"Disconnect all local Agents…" = "断开全部本地 Agent…";
+"Connect the Agents you use. Each one shows its tasks and approvals on the island." = "把你用的 Agent 接上来，它们的任务和审批都会显示在岛上。";

@@ -291,32 +291,39 @@ final class LocalAgentFrameworkTests: XCTestCase {
         for descriptor in LocalAgentRegistry.all where descriptor.standalonePluginRenderer == nil {
             let command = LocalHooksInstaller(descriptor).hookCommand()
             XCTAssertTrue(command.hasSuffix("|| true"), descriptor.source)
-            XCTAssertTrue(command.contains("-m 2"), descriptor.source)
-            XCTAssertTrue(command.contains(descriptor.endpointPath), descriptor.source)
-            XCTAssertTrue(
-                command.contains("-H '\(LocalHooksInstaller.requestHeaderName): \(LocalHooksInstaller.requestHeaderValue)'"),
-                descriptor.source
-            )
-            XCTAssertTrue(
-                command.contains("-H \"@\(LocalHookAuthorizationStore.shellHeaderFilePath)\""),
-                descriptor.source
-            )
+            XCTAssertTrue(command.hasPrefix(LocalHookLauncher.shellPath), descriptor.source)
+            XCTAssertTrue(command.contains("--route \(descriptor.endpointPath) "), descriptor.source)
             XCTAssertFalse(command.contains(localHookTestAuthorization.headerValue))
         }
+        // The transport details every line relies on live once, in the launcher.
+        let script = LocalHooksInstaller.launcherScript()
+        XCTAssertTrue(script.contains("send \(LocalHooksInstaller.launcherPassiveTimeoutSeconds) >/dev/null 2>&1 || true"))
+        XCTAssertTrue(
+            script.contains("-H '\(LocalHooksInstaller.requestHeaderName): \(LocalHooksInstaller.requestHeaderValue)'")
+        )
+        XCTAssertTrue(script.contains("-H \"@\(LocalHookAuthorizationStore.shellHeaderFilePath)\""))
+        XCTAssertFalse(script.contains(localHookTestAuthorization.headerValue))
     }
 
     func testTerminalHooksCaptureOnlyBoundedJumpMetadata() {
+        let script = LocalHooksInstaller.launcherScript()
+        for header in ["X-Dev-Island-Terminal-Bundle", "X-Dev-Island-Terminal-Program",
+                       "X-Dev-Island-TTY", "X-Dev-Island-Tmux-Pane"] {
+            XCTAssertTrue(script.contains(header), header)
+        }
+        XCTAssertFalse(script.contains("env |"))
+        XCTAssertFalse(script.contains("eval "))
         for descriptor in LocalAgentRegistry.all where descriptor.standalonePluginRenderer == nil {
             let command = LocalHooksInstaller(descriptor).hookCommand()
+            XCTAssertFalse(command.contains("X-Dev-Island-Terminal-Bundle"), "hints never sit in vendor config")
+            // The TERMINAL selector is the second `case "$ROUTE"`; the first
+            // one validates the route charset.
+            let plainRouteCase = "TERMINAL=1\ncase \"$ROUTE\" in "
+            let plainRoutes = script.components(separatedBy: plainRouteCase).dropFirst().first ?? ""
             if descriptor.usesTerminalFallback {
-                XCTAssertTrue(command.contains("X-Dev-Island-Terminal-Bundle"), descriptor.source)
-                XCTAssertTrue(command.contains("X-Dev-Island-Terminal-Program"), descriptor.source)
-                XCTAssertTrue(command.contains("X-Dev-Island-TTY"), descriptor.source)
-                XCTAssertTrue(command.contains("X-Dev-Island-Tmux-Pane"), descriptor.source)
-                XCTAssertFalse(command.contains("env |"), descriptor.source)
-                XCTAssertFalse(command.contains("eval "), descriptor.source)
+                XCTAssertFalse(plainRoutes.hasPrefix(descriptor.endpointPath), descriptor.source)
             } else {
-                XCTAssertFalse(command.contains("X-Dev-Island-Terminal-Bundle"), descriptor.source)
+                XCTAssertTrue(plainRoutes.contains(descriptor.endpointPath), descriptor.source)
             }
         }
     }

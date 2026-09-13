@@ -34,7 +34,7 @@ public final class OnboardingWindow: NSWindow {
         )
 
         title = L10n.string("Welcome to Dev Island")
-        appearance = NSAppearance(named: .darkAqua)
+        appearance = NSAppearance(named: .aqua)
         isMovable = true
         isMovableByWindowBackground = true
         backgroundColor = .clear

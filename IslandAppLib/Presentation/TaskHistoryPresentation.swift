@@ -55,6 +55,10 @@ enum TaskHistoryPresentation {
         isLive: Bool,
         language: DevIslandLanguage = .current
     ) -> String {
+        if task.source == "codex",
+           let response = CodexSessionMonitoringPresentation.responseStatus(task.status, phase: task.currentPhase, language: language) {
+            return response
+        }
         let key: String
         switch task.status {
         case .running:

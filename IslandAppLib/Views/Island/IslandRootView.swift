@@ -132,7 +132,10 @@ struct IslandRootView: View {
             // The idle panel shows today's numbers; refresh them on each
             // expansion instead of polling while the island is collapsed.
             if newMode == .expanded {
-                Task { await store.refreshTodayActivity() }
+                Task {
+                    await store.refreshTodayActivity()
+                    await store.refreshReportingHealth()
+                }
             }
 
             if newMode == .collapsed, isHovering {
@@ -223,6 +226,10 @@ struct IslandRootView: View {
                 isLive: panelEffectsLive,
                 todaySummary: DailyActivityPresentation.summaryLine(
                     store.todayActivity,
+                    language: language
+                ),
+                reportingNotice: LocalAgentReportingPresentation.notice(
+                    store.reportingHealth,
                     language: language
                 )
             )
@@ -396,7 +403,7 @@ struct IslandRootView: View {
         guard let task = presentation.primaryTask else {
             return L10n.string("No sessions")
         }
-        return task.currentPhase ?? task.title
+        return CodexSessionMonitoringPresentation.displayPhase(for: task) ?? task.title
     }
 
     private var nextRecentResultExpiry: Date? {

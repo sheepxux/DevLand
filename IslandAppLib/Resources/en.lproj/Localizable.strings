@@ -112,7 +112,6 @@
 "Usage & Limits" = "Usage & Limits";
 "Updates" = "Updates";
 "Privacy & Support" = "Privacy & Support";
-"Manage local Agent hooks and the optional Manus cloud connection." = "Manage local Agent hooks and the optional Manus cloud connection.";
 "Choose how Dev Island behaves when you sign in to this Mac." = "Choose how Dev Island behaves when you sign in to this Mac.";
 "Reserve interruptions for moments that genuinely need your attention." = "Reserve interruptions for moments that genuinely need your attention.";
 "Read provider-authored usage windows locally, without retaining prompts." = "Read provider-authored usage windows locally, without retaining prompts.";
@@ -122,7 +121,6 @@
 "Welcome Tour" = "Welcome Tour";
 "Quit Dev Island" = "Quit Dev Island";
 "Agent Connections" = "Agent Connections";
-"Local Agent Hooks" = "Local Agent Hooks";
 "Disconnect All…" = "Disconnect All…";
 "All Disconnected" = "All Disconnected";
 "Disconnect All" = "Disconnect All";
@@ -172,8 +170,6 @@
 "Disconnect" = "Disconnect";
 "Connect" = "Connect";
 "PREVIEW" = "PREVIEW";
-"Disable" = "Disable";
-"Enable" = "Enable";
 "Track sessions and surface requests that need attention" = "Track sessions and surface requests that need attention";
 "Track sessions and handle tool approvals in the island" = "Track sessions and handle tool approvals in the island";
 "Track Cursor agent lifecycle and results in the island" = "Track Cursor agent lifecycle and results in the island";
@@ -218,10 +214,7 @@
 "Bring the island forward when a task needs input or fails." = "Bring the island forward when a task needs input or fails.";
 "Task Completed" = "Task Completed";
 "Optionally notify when a task finishes." = "Optionally notify when a task finishes.";
-"Search agents" = "Search agents";
-"Cloud Agent" = "Cloud Agent";
 "Local Agents" = "Local Agents";
-"No matching agents" = "No matching agents";
 "Remove every Dev Island Hook while preserving user-owned configuration." = "Remove every Dev Island Hook while preserving user-owned configuration.";
 "No Dev Island Hooks are installed." = "No Dev Island Hooks are installed.";
 "No Dev Island Hooks were installed." = "No Dev Island Hooks were installed.";
@@ -246,15 +239,6 @@
 "Not connected — paste an API key below" = "Not connected — paste an API key below";
 "Disconnected, but the saved key couldn’t be removed. Retry Disconnect before uninstalling." = "Disconnected, but the saved key couldn’t be removed. Retry Disconnect before uninstalling.";
 "Check again" = "Check again";
-"Update available" = "Update available";
-"Checking %@ Hook trust…" = "Checking %@ Hook trust…";
-"Connected — Hook trust verified by %@" = "Connected — Hook trust verified by %@";
-"Configured — review and trust the Dev Island entries in %@ %@" = "Configured — review and trust the Dev Island entries in %@ %@";
-"Preview connected — requests work in simulation; real CLI check pending" = "Preview connected — requests work in simulation; real CLI check pending";
-"Connected — requests can be handled in the island" = "Connected — requests can be handled in the island";
-"Preview connected — real CLI acceptance pending" = "Preview connected — real CLI acceptance pending";
-"Connected — attention requests appear automatically" = "Connected — attention requests appear automatically";
-"Connected — new sessions appear automatically" = "Connected — new sessions appear automatically";
 
 /* Island state and actions */
 "No sessions" = "No sessions";
@@ -429,7 +413,6 @@
 "Choose a regular file instead of a link or folder." = "Choose a regular file instead of a link or folder.";
 "The diagnostic file couldn’t be written safely." = "The diagnostic file couldn’t be written safely.";
 "Plays short cues through macOS notifications." = "Plays short cues through macOS notifications.";
-"Try a name such as Codex, Claude, or Cursor." = "Try a name such as Codex, Claude, or Cursor.";
 "Disconnect all local agents?" = "Disconnect all local agents?";
 "This removes only Dev Island's managed Hook commands from every local Agent configuration. Your other settings and Hooks stay in place. Manus is not affected." = "This removes only Dev Island's managed Hook commands from every local Agent configuration. Your other settings and Hooks stay in place. Manus is not affected.";
 "Disconnecting all local agents" = "Disconnecting all local agents";
@@ -440,7 +423,6 @@
 "Couldn't disconnect local Agents. User settings were preserved." = "Couldn't disconnect local Agents. User settings were preserved.";
 "Restarts the local Agent listener" = "Restarts the local Agent listener";
 "Preview connector" = "Preview connector";
-"Reads Codex Hook status without changing trust or configuration" = "Reads Codex Hook status without changing trust or configuration";
 "Couldn't connect to Manus. Try again." = "Couldn't connect to Manus. Try again.";
 "API key rejected by Manus. Double-check the value." = "API key rejected by Manus. Double-check the value.";
 "Network unavailable. Check your connection and retry." = "Network unavailable. Check your connection and retry.";
@@ -485,6 +467,73 @@
 "%lldm of agent time" = "%lldm of agent time";
 "%lldh %lldm of agent time" = "%lldh %lldm of agent time";
 
+/* Hook reporting heartbeat */
+"%@ is running but not reporting to the island." = "%@ is running but not reporting to the island.";
+"Update its hook in Settings › Agents." = "Update its hook in Settings › Agents.";
+"Hooks are not reporting" = "Hooks are not reporting";
+
+/* Guided Codex trust */
+"Dev Island entries to trust in Codex" = "Dev Island entries to trust in Codex";
+
 /* Global decision shortcuts */
 "Decide from Anywhere" = "Decide from Anywhere";
 "Press ⌃⌥⌘Y to allow or ⌃⌥⌘N to deny the request at the front of the island while any app is active. Questions and plan reviews open the island instead." = "Press ⌃⌥⌘Y to allow or ⌃⌥⌘N to deny the request at the front of the island while any app is active. Questions and plan reviews open the island instead.";
+
+"Task monitoring works independently. To handle approvals in the island, review and authorize the Dev Island hooks." = "Task monitoring works independently. To handle approvals in the island, review and authorize the Dev Island hooks.";
+"Review and authorize hooks" = "Review and authorize hooks";
+"For manual setup, paste the launch command in Terminal. Then enter %@ in Codex CLI and trust only Dev Island entries." = "For manual setup, paste the launch command in Terminal. Then enter %@ in Codex CLI and trust only Dev Island entries.";
+"The signed Codex app could not be found. Install Codex, then try again." = "The signed Codex app could not be found. Install Codex, then try again.";
+"This Codex version needs manual hook review in Codex CLI." = "This Codex version needs manual hook review in Codex CLI.";
+"Dev Island hooks are missing, disabled, or changed. Update the connection, then review again." = "Dev Island hooks are missing, disabled, or changed. Update the connection, then review again.";
+"Hooks or configuration changed during review. Close this review and try again." = "Hooks or configuration changed during review. Close this review and try again.";
+"Authorization could not be verified. Check the connection before retrying." = "Authorization could not be verified. Check the connection before retrying.";
+"Codex could not complete this request. Try again or use manual setup." = "Codex could not complete this request. Try again or use manual setup.";
+"Authorize Dev Island hooks" = "Authorize Dev Island hooks";
+"Allow Codex to run these Dev Island commands for task updates and approval requests on this Mac. Each tool request still follows your Codex approval settings." = "Allow Codex to run these Dev Island commands for task updates and approval requests on this Mac. Each tool request still follows your Codex approval settings.";
+"Reading Dev Island hooks…" = "Reading Dev Island hooks…";
+"Launch command copied" = "Launch command copied";
+"Copy Codex CLI launch command" = "Copy Codex CLI launch command";
+"Authorizing saves trust records for exactly these entries in your Codex configuration (config.toml). Nothing else is changed." = "Authorizing saves trust records for exactly these entries in your Codex configuration (config.toml). Nothing else is changed.";
+"Dev Island monitors a different CODEX_HOME than the one its hooks are installed in. Review the hooks manually in that Codex CLI." = "Dev Island monitors a different CODEX_HOME than the one its hooks are installed in. Review the hooks manually in that Codex CLI.";
+"Review the exact commands before authorizing Dev Island hooks" = "Review the exact commands before authorizing Dev Island hooks";
+"Session monitoring is off" = "Session monitoring is off";
+"Waiting for a local Codex session" = "Waiting for a local Codex session";
+"Monitoring local Codex activity" = "Monitoring local Codex activity";
+"Local Codex sessions could not be read" = "Local Codex sessions could not be read";
+"Send a prompt in Codex. The island reads local session activity; hook authorization is only needed for approvals." = "Send a prompt in Codex. The island reads local session activity; hook authorization is only needed for approvals.";
+"Review and authorize the Dev Island hooks, then send a prompt in Codex." = "Review and authorize the Dev Island hooks, then send a prompt in Codex.";
+"Check session monitoring and approval authorization in Settings › Agents." = "Check session monitoring and approval authorization in Settings › Agents.";
+"For manual setup, use %@ in Codex CLI to trust only Dev Island entries. Otherwise, use Review and authorize hooks below." = "For manual setup, use %@ in Codex CLI to trust only Dev Island entries. Otherwise, use Review and authorize hooks below.";
+
+"Response finished" = "Response finished";
+"Response interrupted" = "Response interrupted";
+"Response failed" = "Response failed";
+"Codex finished this response. Session monitoring is working." = "Codex finished this response. Session monitoring is working.";
+
+/* Settings › Agent (grouped rows) */
+"Cloud" = "Cloud";
+"Checking local Agents…" = "Checking local Agents…";
+"%lld need action" = "%lld need action";
+"Needs action" = "Needs action";
+"%lld not connected" = "%lld not connected";
+"Not connected · one step puts its tasks and approvals on the island" = "Not connected · one step puts its tasks and approvals on the island";
+"The connection is out of date. Update it to keep approvals on the island." = "The connection is out of date. Update it to keep approvals on the island.";
+"Approval hooks are installed. Authorize them to decide in the island." = "Approval hooks are installed. Authorize them to decide in the island.";
+"Connected (preview) · requests work in simulation" = "Connected (preview) · requests work in simulation";
+"Connected · tasks and approvals show on the island" = "Connected · tasks and approvals show on the island";
+"Connected · attention requests show on the island" = "Connected · attention requests show on the island";
+"Connected · sessions show on the island" = "Connected · sessions show on the island";
+"Update connection" = "Update connection";
+"Task activity" = "Task activity";
+"Reads local session logs. Data stays on this Mac." = "Reads local session logs. Data stays on this Mac.";
+"Approvals" = "Approvals";
+"Authorized · %lld commands" = "Authorized · %lld commands";
+"Arrive through the local hook in real time" = "Arrive through the local hook in real time";
+"Attention requests arrive through the local hook" = "Attention requests arrive through the local hook";
+"Sessions arrive through the local hook" = "Sessions arrive through the local hook";
+"View commands" = "View commands";
+"Show details" = "Show details";
+"Hide details" = "Hide details";
+"Island not reacting?" = "Island not reacting?";
+"Disconnect all local Agents…" = "Disconnect all local Agents…";
+"Connect the Agents you use. Each one shows its tasks and approvals on the island." = "Connect the Agents you use. Each one shows its tasks and approvals on the island.";

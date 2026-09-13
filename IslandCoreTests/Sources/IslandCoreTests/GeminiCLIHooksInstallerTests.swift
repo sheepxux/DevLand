@@ -55,12 +55,14 @@ final class GeminiCLIHooksInstallerTests: XCTestCase {
 
     func testPassiveCommandIsBoundedFailOpenAndDiscardsOutput() {
         let command = installer.hookCommand()
-        XCTAssertTrue(command.contains("--noproxy 127.0.0.1"))
-        XCTAssertTrue(command.contains("-m 2"))
-        XCTAssertTrue(command.contains("http://127.0.0.1:7824/hooks/gemini-cli"))
-        XCTAssertTrue(command.contains("--data-binary @-"))
-        XCTAssertTrue(command.contains(">/dev/null 2>&1"))
+        XCTAssertTrue(command.hasPrefix(LocalHookLauncher.shellPath))
+        XCTAssertTrue(command.contains("--route /hooks/gemini-cli --event "))
+        XCTAssertTrue(command.contains("--port 7824"))
         XCTAssertTrue(command.hasSuffix("|| true"))
+        let script = LocalHooksInstaller.launcherScript()
+        XCTAssertTrue(script.contains("--noproxy 127.0.0.1"))
+        XCTAssertTrue(script.contains("--data-binary @-"))
+        XCTAssertTrue(script.contains("send 2 >/dev/null 2>&1 || true"))
     }
 
     func testInstallRendersNestedGroupsWithEmptyMatcher() throws {
@@ -80,7 +82,7 @@ final class GeminiCLIHooksInstallerTests: XCTestCase {
             let handlers = try XCTUnwrap(groups[0]["hooks"] as? [[String: Any]])
             XCTAssertEqual(handlers.count, 1)
             XCTAssertEqual(handlers[0]["type"] as? String, "command")
-            XCTAssertEqual(handlers[0]["command"] as? String, installer.hookCommand())
+            XCTAssertEqual(handlers[0]["command"] as? String, installer.hookCommand(for: event))
             XCTAssertNil(handlers[0]["timeout"], "passive Gemini hooks must not block for UI")
             XCTAssertNil(handlers[0]["statusMessage"])
         }

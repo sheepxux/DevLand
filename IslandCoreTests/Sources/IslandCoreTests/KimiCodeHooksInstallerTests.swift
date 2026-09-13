@@ -74,12 +74,14 @@ final class KimiCodeHooksInstallerTests: XCTestCase {
             XCTAssertTrue(text.contains("event = \"\(event)\""), event)
         }
         let command = installer.hookCommand()
-        XCTAssertTrue(command.contains("--noproxy 127.0.0.1"))
-        XCTAssertTrue(command.contains("-m 2"))
-        XCTAssertTrue(command.contains("http://127.0.0.1:7824/hooks/kimi-code"))
-        XCTAssertTrue(command.contains("X-Dev-Island-Tmux-Pane"))
-        XCTAssertTrue(command.contains(">/dev/null 2>&1"))
+        XCTAssertTrue(command.hasPrefix(LocalHookLauncher.shellPath))
+        XCTAssertTrue(command.contains("--route /hooks/kimi-code --event "))
+        XCTAssertTrue(command.contains("--port 7824"))
         XCTAssertTrue(command.hasSuffix("|| true"))
+        let script = LocalHooksInstaller.launcherScript()
+        XCTAssertTrue(script.contains("--noproxy 127.0.0.1"))
+        XCTAssertTrue(script.contains("X-Dev-Island-Tmux-Pane"))
+        XCTAssertTrue(script.contains("send 2 >/dev/null 2>&1 || true"))
     }
 
     func testInstallAndUninstallPreserveComplexUserTOMLByteForByte() throws {
@@ -155,7 +157,7 @@ final class KimiCodeHooksInstallerTests: XCTestCase {
         try write("model = \"kimi-k2\"\n")
         try installer.install(configURL: configURL)
         let installed = try readString()
-        let stale = installed.replacingOccurrences(of: "-m 2", with: "-m 1")
+        let stale = installed.replacingOccurrences(of: "--port 7824", with: "--port 1")
         try write(stale)
 
         XCTAssertFalse(installer.isInstalled(configURL: configURL))
@@ -166,7 +168,7 @@ final class KimiCodeHooksInstallerTests: XCTestCase {
         XCTAssertFalse(installer.requiresUpdate(configURL: configURL))
         let repaired = try readString()
         XCTAssertEqual(repaired.components(separatedBy: "[[hooks]]").count - 1, 8)
-        XCTAssertFalse(repaired.contains("-m 1"))
+        XCTAssertFalse(repaired.contains("--port 1 "))
         XCTAssertTrue(repaired.hasPrefix("model = \"kimi-k2\"\n"))
     }
 

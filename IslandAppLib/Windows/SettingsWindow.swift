@@ -24,19 +24,24 @@ public final class SettingsWindow: NSWindow {
     public init(onDidClose: @escaping @MainActor () -> Void = {}) {
         self.onDidClose = onDidClose
         super.init(
-            contentRect: NSRect(x: 0, y: 0, width: 720, height: 520),
-            styleMask: [.titled, .closable, .miniaturizable],
+            contentRect: NSRect(x: 0, y: 0, width: 800, height: 560),
+            styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
 
         title = "Dev Island"
-        appearance = NSAppearance(named: .darkAqua)
+        // Windows are the icon's beige outer tile; the island keeps the black
+        // inner tile. The sidebar pane runs under the transparent title bar,
+        // so the content view reserves room for the traffic lights itself.
+        appearance = NSAppearance(named: .aqua)
         titlebarAppearsTransparent = true
+        titleVisibility = .hidden
+        isMovableByWindowBackground = true
         backgroundColor = NSColor(
-            calibratedRed: 10 / 255,
-            green: 10 / 255,
-            blue: 10 / 255,
+            srgbRed: 0xEF / 255,
+            green: 0xEB / 255,
+            blue: 0xE2 / 255,
             alpha: 1
         )
         isReleasedWhenClosed = false

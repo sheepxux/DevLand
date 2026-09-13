@@ -102,9 +102,9 @@ final class CursorHooksInstallerTests: XCTestCase {
     func testHookCommandNeverBlocksATurn() {
         let cmd = CursorHooksInstaller.hookCommand()
         XCTAssertTrue(cmd.hasSuffix("|| true"))
-        XCTAssertTrue(cmd.contains("-m 2"))
-        XCTAssertTrue(cmd.contains(">/dev/null"))
+        XCTAssertTrue(cmd.hasPrefix(LocalHookLauncher.shellPath))
         XCTAssertTrue(cmd.contains("/hooks/cursor"))
+        XCTAssertTrue(LocalHooksInstaller.launcherScript().contains("send 2 >/dev/null 2>&1 || true"))
     }
 
     func testSubscribesOnlyToFireAndForgetEvents() {

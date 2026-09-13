@@ -57,16 +57,18 @@ final class QwenCodeHooksInstallerTests: XCTestCase {
 
     func testPassiveAndActionCommandsHaveDifferentBlockingBehavior() {
         let passive = installer.hookCommand(for: "SessionStart")
-        XCTAssertTrue(passive.contains("-m 2"))
-        XCTAssertTrue(passive.contains(">/dev/null 2>&1"))
+        XCTAssertTrue(passive.contains("--route /hooks/qwen-code --event SessionStart --port 7824"))
         XCTAssertTrue(passive.hasSuffix("|| true"))
 
         let action = installer.hookCommand(for: "PermissionRequest")
-        XCTAssertTrue(action.contains("-m 95"))
-        XCTAssertTrue(action.contains("http://127.0.0.1:7824/hooks/qwen-code"))
-        XCTAssertFalse(action.contains(">/dev/null 2>&1"))
-        XCTAssertTrue(action.contains("2>/dev/null"), "stderr stays quiet while stdout carries JSON")
+        XCTAssertTrue(action.contains("--route /hooks/qwen-code --event PermissionRequest --port 7824"))
         XCTAssertTrue(action.hasSuffix("|| true"))
+
+        let script = LocalHooksInstaller.launcherScript()
+        XCTAssertTrue(script.contains("/hooks/qwen-code/PermissionRequest"), "only the action pair waits")
+        XCTAssertFalse(script.contains("/hooks/qwen-code/SessionStart"))
+        XCTAssertTrue(script.contains("send 95 2>/dev/null || true"), "stderr stays quiet while stdout carries JSON")
+        XCTAssertTrue(script.contains("send 2 >/dev/null 2>&1 || true"))
     }
 
     func testInstallUsesQwenMillisecondTimeoutAndPreservesOtherSettings() throws {

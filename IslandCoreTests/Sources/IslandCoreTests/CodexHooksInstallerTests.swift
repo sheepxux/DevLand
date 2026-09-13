@@ -100,28 +100,31 @@ final class CodexHooksInstallerTests: XCTestCase {
         // `-m 2` + `|| true` + discarded output guarantee exactly that shape.
         let cmd = CodexHooksInstaller.hookCommand()
         XCTAssertTrue(cmd.hasSuffix("|| true"))
-        XCTAssertTrue(cmd.contains("-m 2"))
-        XCTAssertTrue(cmd.contains(">/dev/null"))
-        XCTAssertTrue(cmd.contains("/hooks/codex"))
+        XCTAssertTrue(cmd.hasPrefix(LocalHookLauncher.shellPath))
+        XCTAssertTrue(cmd.contains("--route /hooks/codex "))
+        let script = LocalHooksInstaller.launcherScript()
+        XCTAssertTrue(script.contains("send 2 >/dev/null 2>&1 || true"))
+        XCTAssertTrue(script.hasSuffix("exit 0\n"))
     }
 
     func testPermissionRequestCommandPreservesDecisionOutput() {
         let installer = LocalHooksInstaller(.codex)
         let command = installer.hookCommand(for: "PermissionRequest")
 
-        XCTAssertTrue(command.contains("--noproxy 127.0.0.1"))
-        XCTAssertTrue(command.contains("-m 95"))
-        XCTAssertFalse(command.contains("@- >/dev/null"))
-        XCTAssertTrue(command.contains("2>/dev/null"), "stderr stays quiet without swallowing stdout")
+        XCTAssertTrue(command.contains("--route /hooks/codex --event PermissionRequest --port 7824"))
         XCTAssertTrue(command.hasSuffix("|| true"))
+        let script = LocalHooksInstaller.launcherScript()
+        XCTAssertTrue(script.contains("--noproxy 127.0.0.1"))
+        XCTAssertTrue(script.contains("/hooks/codex/PermissionRequest"))
+        XCTAssertTrue(script.contains("send 95 2>/dev/null || true"), "stderr stays quiet without swallowing stdout")
     }
 
     func testPassiveEventsStayShortAndSilent() {
         let installer = LocalHooksInstaller(.codex)
         for event in CodexHooksInstaller.events where event != "PermissionRequest" {
             let command = installer.hookCommand(for: event)
-            XCTAssertTrue(command.contains("-m 2"), event)
-            XCTAssertTrue(command.contains(">/dev/null"), event)
+            XCTAssertTrue(command.contains("--event \(event) "), event)
+            XCTAssertFalse(LocalHooksInstaller.launcherScript().contains("/hooks/codex/\(event)"), "\(event) stays passive")
         }
     }
 
