@@ -96,19 +96,9 @@ struct OnboardingView: View {
                 cornerRadius: OnboardingMetrics.windowRadius,
                 style: .continuous
             )
-            .stroke(
-                LinearGradient(
-                    colors: [
-                        Palette.warmWhite.opacity(0.15),
-                        Palette.warmWhite.opacity(0.055),
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                ),
-                lineWidth: 0.75
-            )
+            .stroke(Palette.Window.hairlineStrong, lineWidth: 0.75)
         }
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(.light)
         .onAppear(perform: loadInstalledSources)
         .sheet(isPresented: $showsCodexAuthorization) {
             CodexHookAuthorizationSheet(onAuthorized: loadInstalledSources)
@@ -125,15 +115,7 @@ struct OnboardingView: View {
     /// quieter than the state colors and exists only to separate the fixed
     /// chrome, editorial copy and live specimen without adding decoration.
     private var tourCanvas: some View {
-        LinearGradient(
-            stops: [
-                .init(color: Palette.tourCanvasRaised, location: 0),
-                .init(color: Palette.tourCanvas, location: 0.42),
-                .init(color: Palette.notchBlack.opacity(0.96), location: 1),
-            ],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
+        WindowCanvas()
     }
 
     // MARK: - Window chrome
@@ -144,7 +126,7 @@ struct OnboardingView: View {
 
             Text("Dev Island")
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Palette.warmWhite.opacity(0.88))
+                .foregroundStyle(Palette.Window.ink.opacity(0.88))
 
             Spacer()
 
@@ -156,7 +138,7 @@ struct OnboardingView: View {
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(Palette.textSecondary)
+                    .foregroundStyle(Palette.Window.textSecondary)
                     .frame(width: 38, height: 38)
                     .contentShape(Rectangle())
             }
@@ -169,7 +151,7 @@ struct OnboardingView: View {
         .frame(height: 56)
         .overlay(alignment: .bottom) {
             Rectangle()
-                .fill(Palette.hairline)
+                .fill(Palette.Window.hairline)
                 .frame(height: 1)
         }
     }
@@ -180,8 +162,8 @@ struct OnboardingView: View {
                 Capsule(style: .continuous)
                     .fill(
                         index == step
-                            ? Palette.warmWhite.opacity(0.76)
-                            : Palette.warmWhite.opacity(index < step ? 0.24 : 0.10)
+                            ? Palette.Window.ink.opacity(0.92)
+                            : Palette.Window.ink.opacity(index < step ? 0.34 : 0.14)
                     )
                     .frame(width: index == step ? 20 : 10, height: 2)
             }
@@ -283,14 +265,14 @@ struct OnboardingView: View {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 9) {
                     Text(number)
-                        .foregroundStyle(Palette.tourAccent)
+                        .foregroundStyle(Palette.Window.textTertiary)
 
                     Rectangle()
-                        .fill(Palette.hairline)
+                        .fill(Palette.Window.hairline)
                         .frame(width: 22, height: 1)
 
                     Text(L10n.string(label, language: language))
-                        .foregroundStyle(Palette.textSecondary)
+                        .foregroundStyle(Palette.Window.textSecondary)
                 }
                 .font(Typo.tourLabel)
                 .padding(.bottom, 22)
@@ -298,13 +280,13 @@ struct OnboardingView: View {
                 Text(L10n.string(title, language: language))
                     .font(Typo.tourDisplay)
                     .tracking(-1.05)
-                    .foregroundStyle(Palette.warmWhite)
+                    .foregroundStyle(Palette.Window.ink)
                     .lineSpacing(-1)
                     .accessibilityAddTraits(.isHeader)
 
                 Text(L10n.string(detail, language: language))
                     .font(Typo.tourBody)
-                    .foregroundStyle(Palette.textSecondary)
+                    .foregroundStyle(Palette.Window.textSecondary)
                     .lineSpacing(4)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, 18)
@@ -313,13 +295,13 @@ struct OnboardingView: View {
 
                 HStack(alignment: .top, spacing: 9) {
                     Rectangle()
-                        .fill(Palette.tourAccent)
+                        .fill(Palette.Window.textTertiary)
                         .frame(width: 18, height: 1)
                         .padding(.top, 6)
 
                     Text(L10n.string(note, language: language))
                         .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(Palette.textTertiary)
+                        .foregroundStyle(Palette.Window.textTertiary)
                         .lineSpacing(2)
                 }
             }
@@ -334,7 +316,7 @@ struct OnboardingView: View {
                 .background(stageSurface)
                 .clipShape(stageShape)
                 .overlay { stageRim }
-                .shadow(color: .black.opacity(0.34), radius: 18, y: 10)
+                .shadow(color: Color(hex: 0x463A22).opacity(0.14), radius: 18, y: 10)
                 .frame(maxHeight: .infinity, alignment: .center)
         }
         .padding(.horizontal, OnboardingMetrics.contentHorizontalPadding)
@@ -348,7 +330,7 @@ struct OnboardingView: View {
             stageHeader(title: "Current signal", trailing: "Live")
 
             Rectangle()
-                .fill(Palette.hairline)
+                .fill(Palette.Window.hairline)
                 .frame(height: 1)
 
             compactIslandPreview
@@ -356,7 +338,7 @@ struct OnboardingView: View {
                 .padding(.vertical, 17)
 
             Rectangle()
-                .fill(Palette.hairline)
+                .fill(Palette.Window.hairline)
                 .frame(height: 1)
 
             signalRow(title: "Running", detail: "3 sessions", state: .running)
@@ -370,7 +352,7 @@ struct OnboardingView: View {
 
     private var compactIslandPreview: some View {
         HStack(spacing: 11) {
-            stageSignal(.running, size: 10, animated: true)
+            stageSignal(.running, size: 10, animated: true, onDark: true)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(L10n.string("Prepare release build", language: language))
@@ -418,13 +400,13 @@ struct OnboardingView: View {
 
             Text(L10n.string(title, language: language))
                 .font(Typo.tourStageBody.weight(.medium))
-                .foregroundStyle(Palette.warmWhite.opacity(0.78))
+                .foregroundStyle(Palette.Window.ink.opacity(0.78))
 
             Spacer()
 
             Text(L10n.string(detail, language: language))
                 .font(Typo.tourLabel)
-                .foregroundStyle(Palette.textTertiary)
+                .foregroundStyle(Palette.Window.textTertiary)
         }
         .padding(.horizontal, 18)
         .frame(height: 37)
@@ -437,7 +419,7 @@ struct OnboardingView: View {
             connectionStageHeader
 
             Rectangle()
-                .fill(Palette.hairline)
+                .fill(Palette.Window.hairline)
                 .frame(height: 1)
 
             LazyVGrid(
@@ -464,14 +446,14 @@ struct OnboardingView: View {
                     .overlay(alignment: .trailing) {
                         if item.offset.isMultiple(of: 2) {
                             Rectangle()
-                                .fill(Palette.hairline)
+                                .fill(Palette.Window.hairline)
                                 .frame(width: 1)
                         }
                     }
                     .overlay(alignment: .bottom) {
                         if item.offset / 2 < connectionRowCount - 1 {
                             Rectangle()
-                                .fill(Palette.hairline)
+                                .fill(Palette.Window.hairline)
                                 .frame(height: 1)
                         }
                     }
@@ -487,7 +469,7 @@ struct OnboardingView: View {
                 .overlay(alignment: .bottom) {
                     if onboardingAgents.count / 2 < connectionRowCount - 1 {
                         Rectangle()
-                            .fill(Palette.hairline)
+                            .fill(Palette.Window.hairline)
                             .frame(height: 1)
                     }
                 }
@@ -546,13 +528,13 @@ struct OnboardingView: View {
         HStack(spacing: 10) {
             Text(L10n.string("Agent sources", language: language))
                 .font(Typo.tourStageTitle)
-                .foregroundStyle(Palette.warmWhite.opacity(0.84))
+                .foregroundStyle(Palette.Window.ink.opacity(0.84))
 
             Spacer()
 
             Text(connectionSummary)
                 .font(Typo.tourLabel)
-                .foregroundStyle(Palette.textTertiary)
+                .foregroundStyle(Palette.Window.textTertiary)
 
             if updateRequiredSourceCount > 1 || connectionOperation.isBulkUpdating {
                 Button(action: updateAllRequiredConnections) {
@@ -587,7 +569,7 @@ struct OnboardingView: View {
             stageHeader(title: "Notifications", trailing: "Your choice")
 
             Rectangle()
-                .fill(Palette.hairline)
+                .fill(Palette.Window.hairline)
                 .frame(height: 1)
 
             notificationRow(
@@ -608,7 +590,7 @@ struct OnboardingView: View {
             )
 
             Rectangle()
-                .fill(Palette.hairline)
+                .fill(Palette.Window.hairline)
                 .frame(height: 1)
 
             HStack(spacing: 9) {
@@ -623,9 +605,9 @@ struct OnboardingView: View {
 
                 Text(L10n.string("Needs input", language: language))
                     .font(Typo.tourLabel)
-                    .foregroundStyle(Palette.stateWaiting)
+                    .foregroundStyle(Palette.Window.stateWaiting)
             }
-            .foregroundStyle(Palette.textTertiary)
+            .foregroundStyle(Palette.Window.textTertiary)
             .padding(.horizontal, 16)
             .frame(height: 52, alignment: .leading)
         }
@@ -644,10 +626,10 @@ struct OnboardingView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(L10n.string(title, language: language))
                         .font(Typo.tourStageTitle)
-                        .foregroundStyle(Palette.warmWhite.opacity(0.82))
+                        .foregroundStyle(Palette.Window.ink.opacity(0.82))
                     Text(L10n.string(detail, language: language))
                         .font(Typo.tourStageBody)
-                        .foregroundStyle(Palette.textTertiary)
+                        .foregroundStyle(Palette.Window.textTertiary)
                 }
             }
 
@@ -656,7 +638,7 @@ struct OnboardingView: View {
             Toggle(L10n.string(title, language: language), isOn: isOn)
                 .labelsHidden()
                 .toggleStyle(.switch)
-                .tint(Palette.tourAccent)
+                .tint(Palette.Window.ink)
                 .accessibilityLabel(L10n.string(title, language: language))
                 .accessibilityHint(L10n.string(detail, language: language))
         }
@@ -746,10 +728,10 @@ struct OnboardingView: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(liveSignalTitle)
                     .font(Typo.tourStageTitle)
-                    .foregroundStyle(Palette.warmWhite.opacity(0.9))
+                    .foregroundStyle(Palette.Window.ink.opacity(0.9))
                 Text(liveSignalDetail)
                     .font(Typo.tourLabel)
-                    .foregroundStyle(Palette.textTertiary)
+                    .foregroundStyle(Palette.Window.textTertiary)
                     .lineLimit(1)
             }
 
@@ -868,7 +850,7 @@ struct OnboardingView: View {
     private func quietLiveSignalLine(_ key: String) -> some View {
         Text(L10n.string(key, language: language))
             .font(Typo.tourStageBody)
-            .foregroundStyle(Palette.textTertiary)
+            .foregroundStyle(Palette.Window.textTertiary)
     }
 
     private func liveSignalInstruction(
@@ -877,7 +859,7 @@ struct OnboardingView: View {
     ) -> some View {
         Text(isLocalized ? copy : L10n.string(copy, language: language))
             .font(Typo.tourStageBody)
-            .foregroundStyle(Palette.textSecondary)
+            .foregroundStyle(Palette.Window.textSecondary)
             .lineSpacing(3)
             .fixedSize(horizontal: false, vertical: true)
     }
@@ -904,7 +886,7 @@ struct OnboardingView: View {
                     .font(.system(size: 9, weight: .semibold))
                     .accessibilityLabel(L10n.string("Copy command", language: language))
             }
-            .buttonStyle(AgentConnectButtonStyle())
+            .buttonStyle(IslandQuietActionButtonStyle())
             .accessibilityHint(L10n.string(
                 "Copies the command to the clipboard",
                 language: language
@@ -946,10 +928,11 @@ struct OnboardingView: View {
     private func stageSignal(
         _ state: BarState,
         size: CGFloat,
-        animated: Bool = false
+        animated: Bool = false,
+        onDark: Bool = false
     ) -> some View {
         AnimatedDotMatrixMark(
-            color: state.color,
+            color: onDark ? state.color : state.windowColor,
             size: size,
             motion: state.matrixMotion,
             pattern: state.matrixPattern,
@@ -962,13 +945,13 @@ struct OnboardingView: View {
         HStack(spacing: 10) {
             Text(L10n.string(title, language: language))
                 .font(Typo.tourStageTitle)
-                .foregroundStyle(Palette.warmWhite.opacity(0.84))
+                .foregroundStyle(Palette.Window.ink.opacity(0.84))
 
             Spacer()
 
             Text(L10n.string(trailing, language: language))
                 .font(Typo.tourLabel)
-                .foregroundStyle(Palette.textTertiary)
+                .foregroundStyle(Palette.Window.textTertiary)
         }
         .padding(.horizontal, 16)
         .frame(height: 46)
@@ -976,7 +959,7 @@ struct OnboardingView: View {
 
     private var rowDivider: some View {
         Rectangle()
-            .fill(Palette.hairline)
+            .fill(Palette.Window.hairline)
             .frame(height: 1)
     }
 
@@ -988,27 +971,26 @@ struct OnboardingView: View {
     }
 
     private var stageSurface: some View {
-        stageShape.fill(
-            LinearGradient(
-                colors: [Palette.tourPanelRaised, Palette.tourPanel],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        )
+        ZStack {
+            stageShape.fill(.thinMaterial)
+            stageShape.fill(Palette.Window.glass)
+        }
     }
 
     private var stageRim: some View {
-        stageShape.stroke(
-            LinearGradient(
-                colors: [
-                    Palette.warmWhite.opacity(0.12),
-                    Palette.warmWhite.opacity(0.045),
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            ),
-            lineWidth: 0.75
-        )
+        ZStack {
+            stageShape.strokeBorder(Palette.Window.hairline, lineWidth: 0.75)
+            stageShape
+                .strokeBorder(Palette.Window.glassHighlight, lineWidth: 1)
+                .mask(
+                    LinearGradient(
+                        colors: [Color.black, Color.black.opacity(0)],
+                        startPoint: .top,
+                        endPoint: .center
+                    )
+                )
+        }
+        .allowsHitTesting(false)
     }
 
     // MARK: - Navigation
@@ -1026,7 +1008,7 @@ struct OnboardingView: View {
                 }
                 .buttonStyle(.plain)
                 .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(Palette.textTertiary)
+                .foregroundStyle(Palette.Window.textTertiary)
             }
 
             Spacer()
@@ -1057,7 +1039,7 @@ struct OnboardingView: View {
         .frame(height: 64)
         .overlay(alignment: .top) {
             Rectangle()
-                .fill(Palette.hairline)
+                .fill(Palette.Window.hairline)
                 .frame(height: 1)
         }
     }
@@ -1188,15 +1170,15 @@ private struct OnboardingManusCell: View {
 
     var body: some View {
         HStack(spacing: 9) {
-            AgentLogoBadge(source: "manus", size: 22)
+            AgentStateTile(state: .disconnected, size: 22)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("Manus")
                     .font(.system(size: 11.5, weight: .semibold))
-                    .foregroundStyle(Palette.warmWhite.opacity(0.86))
+                    .foregroundStyle(Palette.Window.ink.opacity(0.86))
                 Text(L10n.string("Cloud · optional", language: language))
                     .font(.system(size: 9.5, weight: .regular))
-                    .foregroundStyle(Palette.textTertiary)
+                    .foregroundStyle(Palette.Window.textTertiary)
             }
 
             Spacer(minLength: 4)
@@ -1235,12 +1217,12 @@ private struct OnboardingAgentCell: View {
 
     var body: some View {
         HStack(spacing: 9) {
-            AgentLogoBadge(source: descriptor.source, size: 22)
+            AgentStateTile(state: connectionState, isBusy: isWorking, size: 22)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(compactDisplayName)
                     .font(.system(size: 11.5, weight: .semibold))
-                    .foregroundStyle(Palette.warmWhite.opacity(0.86))
+                    .foregroundStyle(Palette.Window.ink.opacity(0.86))
                     .lineLimit(1)
                     .allowsTightening(true)
                     .minimumScaleFactor(0.86)
@@ -1262,8 +1244,8 @@ private struct OnboardingAgentCell: View {
                     .font(.system(size: 9, weight: .bold))
                     .foregroundStyle(
                         connectionState == .connected
-                            ? Palette.stateCompleted
-                            : Palette.stateWaiting
+                            ? Palette.Window.stateCompleted
+                            : Palette.Window.stateWaiting
                     )
                     .frame(width: 28, height: 24)
                     .accessibilityLabel(
@@ -1314,13 +1296,13 @@ private struct OnboardingAgentCell: View {
     }
 
     private var statusColor: Color {
-        if errorMessage != nil { return Palette.stateFailed }
+        if errorMessage != nil { return Palette.Window.stateFailed }
         switch connectionState {
-        case nil: return Palette.textTertiary
-        case .connected: return Palette.stateCompleted
-        case .configured: return Palette.stateWaiting
-        case .updateRequired: return Palette.stateWaiting
-        case .disconnected: return Palette.textTertiary
+        case nil: return Palette.Window.textTertiary
+        case .connected: return Palette.Window.stateCompleted
+        case .configured: return Palette.Window.stateWaiting
+        case .updateRequired: return Palette.Window.stateWaiting
+        case .disconnected: return Palette.Window.textTertiary
         }
     }
 
@@ -1393,15 +1375,15 @@ private struct AgentConnectButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .foregroundStyle(Palette.warmWhite.opacity(configuration.isPressed ? 0.5 : 0.72))
-            .padding(.horizontal, 7)
-            .frame(minWidth: 42, minHeight: 26, maxHeight: 26)
+            .foregroundStyle(Palette.Window.ink.opacity(configuration.isPressed ? 0.6 : 1))
+            .padding(.horizontal, 9)
+            .frame(minWidth: 42, minHeight: 24, maxHeight: 24)
             .background(
-                RoundedRectangle(cornerRadius: 4, style: .continuous)
-                    .fill(Palette.warmWhite.opacity(configuration.isPressed ? 0.035 : 0.02))
+                Capsule(style: .continuous)
+                    .fill(Palette.Window.field.opacity(configuration.isPressed ? 1 : 0.8))
                     .overlay {
-                        RoundedRectangle(cornerRadius: 4, style: .continuous)
-                            .stroke(Palette.hairline, lineWidth: 0.75)
+                        Capsule(style: .continuous)
+                            .strokeBorder(Palette.Window.hairlineStrong, lineWidth: 0.75)
                     }
             )
             .scaleEffect(

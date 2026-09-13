@@ -105,3 +105,17 @@ enum WindowPaletteContrast {
     static let stateCompleted: UInt32 = 0x3B6D11
     static let stateFailed: UInt32 = 0xA32D2D
 }
+
+extension BarState {
+    /// The same five states as `color`, deepened for the beige window ground
+    /// where the island's neon values would wash out.
+    var windowColor: Color {
+        switch self {
+        case .idle:      return Palette.Window.textTertiary
+        case .running:   return Palette.Window.stateRunning
+        case .waiting:   return Palette.Window.attention
+        case .completed: return Palette.Window.stateCompleted
+        case .failed:    return Palette.Window.stateFailed
+        }
+    }
+}
