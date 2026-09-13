@@ -2513,16 +2513,20 @@ Dependabot security updates 六项控制；未经明确授权未修改远端设�
   Codex Hook 快照在监控 `.notFound` 时唤醒一次，刚安装的 Codex 立即被发现。
 - [x] 门禁与文档：安全/性能门禁固定新设计与回归测试；契约 v6.93.0；PRIVACY 中英与数据流清单
   改为“仅在系统报告变化或记录到期时读取”。
-- [x] 2026-09-12 同一安静窗口（无 Codex 会话变化）各自单独运行、10 秒预热、45 秒采样：旧轮询候选
-  `6a490aa` 平均 CPU 1.279%、package-idle 唤醒 0.864/s、写盘 73,728 B；新事件驱动 `15d7469`
-  平均 CPU 0.631%、package-idle 唤醒 0.089/s、写盘 0。剩余约 2 次/秒中断唤醒来自岛自身 UI 节奏。
-  原始数据与协议：`CodexFiles/DevIsland-Optimization/qa/release-0.4.0-candidate-20260912/idle-comparison/`。
-- [x] 2026-09-12 本机岛内授权完成：复用 `CodexHookAuthorization.review()` → `authorize(_:)` 同一代码路径
+- [x] 2026-09-12 各自单独运行、10 秒预热、45 秒采样的短时观察：旧轮询候选 `6a490aa`
+  平均 CPU 1.279%、package-idle 唤醒 0.864/s、写盘 73,728 B；新事件驱动 `15d7469`
+  平均 CPU 0.631%、package-idle 唤醒 0.089/s、写盘 0。复核发现 observer 只比较启动时枚举
+  文件中最新三组mtime/size，不覆盖新文件；不能证明全树无会话变化，也未证明余下唤醒来自UI。
+  原始数据与协议保留于 `CodexFiles/DevIsland-Optimization/qa/release-0.4.0-candidate-20260912/idle-comparison/`。
+- [ ] 用完整metadata差分及一致显示/负载条件补受控空闲对照，不能把上述短时观察算作已通过。
+- [x] 2026-09-12 本机Hook信任写入已完成：辅助工具复用 `CodexHookAuthorization.review()` → `authorize(_:)` 同一代码路径
   （签名 CLI 0.153.4 App Server），审阅记录与授权输出存于 `evidence/live-0.4.0/hook-authorization-*-20260912.txt`；
   写入后复核 `alreadyAuthorized = true`，`local-hook-status` 报告 `codex=connected`。只新增 Dev Island
   五条 `trusted_hash`（`*:1:0` 与 `session_end:0:0`），Vibe Island 的记录未动。
-- [ ] Allow / Deny / 无障碍三份 0.4.0 实机回执：需要用户在 Codex Desktop 新线程（workspace-write +
-  on-request）中执行 `evidence/live-0.4.0/approval-prompt.txt` 与 `deny-prompt.txt`，并在岛内点击。
+- [ ] Allow / Deny / 无障碍三份 0.4.0 实机回执仍需真实操作。旧Deny prompt和截图循环存在格式及
+  session绑定问题，保留历史但不再使用；新的精确prompt、独立工作区及preflight位于外置证据目录
+  `evidence/live-0.4.0/attempt-20260912T141344Z/`。真实任务须workspace-write + on-request，
+  审批由用户在对应岛卡片点击。新候选原生UI和只读CLI已复核Hook授权，无需重复写入信任。
 
 ### 2026-09-11 当前候选重建与运行验证
 
@@ -2578,3 +2582,26 @@ Dependabot security updates 六项控制；未经明确授权未修改远端设�
 - [ ] 无日志输入窗口尚未取得：controller静默45秒、无编译、屏幕解锁，30秒样本仍有3文件
   增长366,465 bytes（FSEvents仍零事件），metadata正确判无效。活动CPU0.543%不作空闲
   能耗或旧新优化比例；未停止其他用户任务。完整Security已通过新增70项后停在原旧回执。
+
+## 2026-09-13 设置窗口重设计：米白玻璃 + 点阵
+
+owner 看过三版稿后定稿：窗口用 logo 的米白外层，岛保持墨黑内层；材质按 macOS 26 的玻璃做；
+状态标记多用产品自己的九点点阵。本节只改 App 层，不改 TaskStore 公开 API，不算 `[S][contract]`。
+
+- [x] `Palette.Window`：米白底 `#EFEBE2`、墨黑 `#141414`、暖灰次要/提示文字、玻璃与发丝线，
+  以及为浅底加深过的琥珀/朱红/语义色。`WindowPaletteTests` 钉住对比度：主文字 ≥7:1，
+  次要文字 ≥4.5:1，提示灰 3–4.5:1，Increase Contrast 在浅底上是加深而不是提亮。
+- [x] 设置窗口改为 `.aqua` + `.fullSizeContentView`，侧栏是浮起的玻璃面板（`.thinMaterial` +
+  白 58% + 发丝线 + 顶部高光），窗口底是带两处柔光的米白渐变；所有按钮改胶囊，整页只有
+  一个黑胶囊，落在"需要处理"那一行。
+- [x] 设置 › Agent 按状态分组（已连接 / 需要处理 / 未连接 / 云端），分组来自一次只读的
+  `LocalAgentHookDiagnostics.snapshotResolvingVendorActivation()`；每行一句人话状态、一个动作；
+  已连接的行展开成内嵌面板（Codex 的任务活动开关、审批命令查看、断开）。搜索框、"停用"
+  橙色按钮、Codex 专属开关块和顶部诊断卡都撤掉，诊断卡改到页脚"岛上没反应？"。
+- [x] 每行的前导标记是 `AnimatedDotMatrixMark`：已连接 = 墨黑块上的米白 plus 阵、需要处理 =
+  琥珀块上的 ring 呼吸、未连接 = 玻璃块上的暗 field、检查中 = orbit；心跳与监听器提示也用点阵。
+- [x] 授权表单、法律文档表单、历史列表跟随窗口色板；`LocalAgentConnectionRowsPresentation`
+  负责分组/状态句/汇总行并有测试；安全门禁改钉 `Palette.Window.stateRunning` 并新增分组不变量。
+- [ ] 欢迎引导窗口尚未换到米白玻璃（当前仍是深色），下一步与设置窗口统一。
+- [ ] 真机走一遍：展开/收起、授权表单、Cursor 更新连接、断开全部；系统深色外观下的观感。
+

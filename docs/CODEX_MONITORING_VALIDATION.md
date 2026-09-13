@@ -174,13 +174,35 @@ then stopped at the unchanged old Allow receipt as expected.
   only at the 0.3.0 receipt vs VERSION mismatch). Universal production build:
   `CodexFiles/DevIsland-Optimization/qa/release-0.4.0-candidate-20260912/build/Dev Island.app`,
   main executable SHA-256 `654528afe56cdbdeece28ab78a622ef17d8876f5ed95d48fc39047d60331508a`.
-- Idle comparison in one quiet window (each app alone, 10 s warm-up, 45 s sample, no Codex
-  session changed): old polling `6a490aa` 1.279 % CPU / 0.864 package-idle wakeups per second /
-  73,728 bytes written; new event-driven `15d7469` 0.631 % CPU / 0.089 per second / 0 bytes.
-  Protocol and raw summaries live in `idle-comparison/` next to the build.
+- Two short process observations (each app alone, 10 s warm-up, 45 s sample): old polling
+  `6a490aa` 1.279 % CPU / 0.864 package-idle wakeups per second / 73,728 bytes written;
+  new event-driven `15d7469` 0.631 % CPU / 0.089 per second / 0 bytes. The observer freezes
+  its file list at startup and compares only the three newest `(mtime, size)` pairs.
+  It cannot establish that no session changed or that no new rollout appeared. These
+  numbers remain observations, not controlled idle acceptance or a causal improvement
+  claim. The asserted UI origin of remaining wakeups was not measured by this script.
+  Protocol and raw summaries remain in `idle-comparison/` next to the build.
 - Dev Island's five Codex Hook entries were authorized on this Mac through the same
   `review()` → `authorize(_:)` path the Settings sheet uses; the post-write review reports
   `alreadyAuthorized = true` and `IslandCoreCLI local-hook-status` reports `codex=connected`.
   Other trust records were left untouched. Records: `evidence/live-0.4.0/hook-authorization-*-20260912.txt`.
 - Still open: real Allow / Deny / accessibility receipts for this build, and Sparkle keys.
 
+
+## Current live preflight and corrected acceptance preparation (2026-09-12)
+
+The current production candidate above was opened and its loopback listener verified.
+Both the native Settings page and the read-only CLI report the five Codex Hooks as
+already authorized/connected. No additional trust write was needed in this continuation.
+The helper authorization record does not itself prove a native authorization-button click.
+
+The original external Deny prompt used incompatible proof text and a final marker.
+The original capture loop selected the newest task repeatedly and could associate images
+with the wrong session. Both are retained as historical artifacts and should not be used
+for the next attempt. Parser-exact prompts, separate workspaces, real tool-envelope guidance
+and a preparation-only preflight now live under:
+`/Volumes/T7 Shield/MacMini/CodexFiles/DevIsland-Optimization/evidence/live-0.4.0/attempt-20260912T141344Z/`.
+
+Actual new-task permissions, a human decision, current transport output and screenshots
+remain unverified. A new user-owned task in Ask for approval mode is required; the current
+never/full-access task cannot supply this evidence. Original receipts remain unchanged.
