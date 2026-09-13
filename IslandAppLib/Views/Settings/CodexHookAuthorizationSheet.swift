@@ -26,14 +26,14 @@ struct CodexHookAuthorizationSheet: View {
                 language: language
             ))
                 .font(.system(size: 12))
-                .foregroundStyle(Palette.textSecondary)
+                .foregroundStyle(Palette.Window.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
             Text(L10n.string(
                 "Authorizing saves trust records for exactly these entries in your Codex configuration (config.toml). Nothing else is changed.",
                 language: language
             ))
                 .font(.system(size: 12))
-                .foregroundStyle(Palette.textSecondary)
+                .foregroundStyle(Palette.Window.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
             if let review {
@@ -45,7 +45,7 @@ struct CodexHookAuthorizationSheet: View {
                                     .font(.system(size: 11, weight: .semibold))
                                 Text(verbatim: entry.command)
                                     .font(.system(size: 10, design: .monospaced))
-                                    .foregroundStyle(Palette.textSecondary)
+                                    .foregroundStyle(Palette.Window.textSecondary)
                                     .textSelection(.enabled)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
@@ -55,7 +55,11 @@ struct CodexHookAuthorizationSheet: View {
                     .padding(12)
                 }
                 .frame(maxHeight: 280)
-                .background(Palette.tourPanel, in: RoundedRectangle(cornerRadius: 8))
+                .background(Palette.Window.field, in: RoundedRectangle(cornerRadius: Palette.Window.Radius.inset, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: Palette.Window.Radius.inset, style: .continuous)
+                        .strokeBorder(Palette.Window.hairline, lineWidth: 0.75)
+                }
             } else if isWorking {
                 ProgressView(L10n.string("Reading Dev Island hooks…", language: language))
                     .controlSize(.small)
@@ -64,11 +68,11 @@ struct CodexHookAuthorizationSheet: View {
             if let errorMessage {
                 Text(errorMessage)
                     .font(.system(size: 12))
-                    .foregroundStyle(Palette.stateWaiting)
+                    .foregroundStyle(Palette.Window.stateWaiting)
                 if let executableURL {
                     Text(CodexTrustGuidance.manualInstructions(language: language))
                         .font(.system(size: 11))
-                        .foregroundStyle(Palette.textSecondary)
+                        .foregroundStyle(Palette.Window.textSecondary)
                     Button {
                         copiedLauncher = CodexTrustGuidance.copyCLILaunchCommand(executableURL: executableURL)
                     } label: {
@@ -77,13 +81,14 @@ struct CodexHookAuthorizationSheet: View {
                             language: language
                         ))
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(SettingsControlButtonStyle())
                 }
             }
 
             HStack {
                 Spacer()
                 Button(L10n.string("Cancel", language: language)) { dismiss() }
+                    .buttonStyle(SettingsControlButtonStyle())
                     .keyboardShortcut(.cancelAction)
                     .disabled(isWorking && review != nil)
                 Button(L10n.string(
@@ -92,14 +97,15 @@ struct CodexHookAuthorizationSheet: View {
                 )) {
                     authorizeReviewedHooks()
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(SettingsPrimaryButtonStyle())
                 .disabled(isWorking || review == nil || errorMessage != nil)
             }
         }
         .padding(24)
         .frame(width: 540)
-        .background(Palette.tourCanvas)
-        .foregroundStyle(Palette.warmWhite)
+        .background(WindowCanvas())
+        .foregroundStyle(Palette.Window.ink)
+        .tint(Palette.Window.ink)
         .task {
             let authorization = authorization
             executableURL = await Task.detached(priority: .userInitiated) {

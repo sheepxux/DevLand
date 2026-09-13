@@ -4505,11 +4505,36 @@ rg -q 'testCaptureSettingsLiveReadinessAttention' "$VISUAL_SNAPSHOT_TESTS" \
 rg -q 'testCaptureSettingsLiveReadinessCheckFailed' "$VISUAL_SNAPSHOT_TESTS" \
   || fail "Settings live-readiness retry snapshot regression is missing"
 for invariant in \
-  'case \.retry:[[:space:]]+return Palette\.stateRunning' \
+  'case \.retry:[[:space:]]+return Palette\.Window\.stateRunning' \
   'case \.retry:[[:space:]]+return \.ring' \
   'case \.retry:[[:space:]]+return 0\.90'; do
   rg -q "$invariant" "$SETTINGS_VIEW" \
     || fail "Settings readiness retry visual invariant missing: $invariant"
+done
+# Settings › Agent groups rows by diagnostics state through one read-only pass;
+# the row never re-derives vendor trust on its own and never writes.
+for invariant in \
+  'LocalAgentHookDiagnostics\.snapshotResolvingVendorActivation\(\)' \
+  'LocalAgentRowPresentation\.grouped\(LocalAgentRegistry\.all, states: connectionStates\)' \
+  'guard connectionSnapshotToken == token else \{ return \}' \
+  'AgentStateTile\(state: connectionState, isBusy: isBusy\)'; do
+  rg -q "$invariant" "$SETTINGS_VIEW" \
+    || fail "Settings grouped Agent rows invariant missing: $invariant"
+done
+for regression in \
+  'testEveryDiagnosticStateLandsInExactlyOneGroupWithOneAction' \
+  'testGroupsKeepRegistryOrderInsideAndReadingOrderBetween' \
+  'testIncompleteSnapshotKeepsEveryRowInOneUngroupedList' \
+  'testStatusLinesNeverMentionVendorMechanicsAndAreLocalized'; do
+  rg -q "$regression" IslandAppLibTests/Sources/IslandAppLibTests/LocalAgentConnectionRowsPresentationTests.swift \
+    || fail "Settings grouped Agent rows regression missing: $regression"
+done
+for regression in \
+  'testPrimaryInkClearsAAAOnEveryGround' \
+  'testSupportingCopyClearsAAAndIncreasedContrastGoesDarker' \
+  'testSemanticInkReadsAsTextOnTheBeigeGround'; do
+  rg -q "$regression" IslandAppLibTests/Sources/IslandAppLibTests/WindowPaletteTests.swift \
+    || fail "Window palette contrast regression missing: $regression"
 done
 
 for file in \

@@ -559,6 +559,38 @@ final class VisualSnapshotTests: XCTestCase {
         )
     }
 
+    /// The grouped Agent page with every state present, in both languages,
+    /// so the beige glass treatment can be reviewed without a live Mac.
+    func testCaptureSettingsAgentsGrouped() throws {
+        guard let outputDirectory = try snapshotDirectory() else { return }
+        configureApplicationIconForPackageTests()
+
+        let states: [String: LocalAgentHookConnectionState] = [
+            "claude-code": .connected,
+            "codex": .connected,
+            "gemini-cli": .connected,
+            "qwen-code": .connected,
+            "copilot-cli": .disconnected,
+            "kimi-code": .disconnected,
+            "opencode": .disconnected,
+            "cursor": .updateRequired,
+        ]
+        for (language, filename) in [
+            (DevIslandLanguage.english, "31-settings-agents-grouped.png"),
+            (.simplifiedChinese, "46-zh-hans-settings-agents-grouped.png"),
+        ] {
+            try render(
+                SettingsView(
+                    previewStore: TaskStore.presentationFixture(),
+                    previewConnectionStates: states
+                ),
+                language: language,
+                size: NSSize(width: 800, height: 640),
+                to: outputDirectory.appendingPathComponent(filename)
+            )
+        }
+    }
+
     func testCaptureEnglishSettingsControlRhythm() throws {
         guard let outputDirectory = try snapshotDirectory() else { return }
         configureApplicationIconForPackageTests()
